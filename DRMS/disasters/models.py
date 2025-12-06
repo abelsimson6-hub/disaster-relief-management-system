@@ -1,5 +1,5 @@
 from django.db import models
-from django.core.validators import MinLengthValidator
+from django.core.validators import MinLengthValidator, MinValueValidator
 
 class Disasters(models.Model):
     DISASTER_TYPES = [
@@ -8,7 +8,7 @@ class Disasters(models.Model):
         ('hurricane', 'Hurricane'),
         ('tsunami', 'Tsunami'),
         ('fire', 'Fire'),
-        ('landside', 'Landslide'),
+        ('landslide', 'Landslide'),
         ('drought', 'Drought'),
         ('other', 'Other'),
     ]
@@ -37,6 +37,10 @@ class Disasters(models.Model):
     end_date = models.DateTimeField(null=True, blank=True)
     estimated_damage = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     affected_areas = models.TextField(blank=True)
+    affected_population_estimate = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
+    impact_radius_km = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
+    impact_area_description = models.TextField(blank=True)
+    geojson_boundary = models.TextField(blank=True, help_text="Optional GeoJSON polygon for mapping.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -76,6 +76,7 @@ class Transport(models.Model):
     transport_type = models.CharField(max_length=20, choices=TRANSPORT_TYPE_CHOICES)
     capacity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
+    current_location = models.CharField(max_length=255, blank=True)
     assigned_to_camp = models.ForeignKey('shelters.Camp', on_delete=models.SET_NULL, null=True, blank=True)
     last_service_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -129,6 +130,18 @@ class HelpRequest(models.Model):
     def __str__(self):
         return f"HelpRequest by {self.victim.username} - {self.status}"
 
+    def save(self, *args, **kwargs):
+        previous_status = None
+        if self.pk:
+            previous_status = HelpRequest.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+        super().save(*args, **kwargs)
+        if previous_status and previous_status != self.status:
+            HelpRequestStatusHistory.objects.create(
+                help_request=self,
+                previous_status=previous_status,
+                new_status=self.status
+            )
+
 class TaskAssignment(models.Model):
     STATUS_CHOICES = [
         ('assigned', 'Assigned'),
@@ -157,3 +170,90 @@ class TaskAssignment(models.Model):
 
     def __str__(self):
         return f"{self.task_description[:30]}... - {self.volunteer.username}"
+
+    def save(self, *args, **kwargs):
+        previous_status = None
+        if self.pk:
+            previous_status = TaskAssignment.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+        super().save(*args, **kwargs)
+        if previous_status and previous_status != self.status:
+            TaskAssignmentStatusHistory.objects.create(
+                task=self,
+                previous_status=previous_status,
+                new_status=self.status
+            )
+
+
+class HelpRequestStatusHistory(models.Model):
+    """Audit trail for SOS/help requests."""
+    id = models.AutoField(primary_key=True)
+    help_request = models.ForeignKey(HelpRequest, on_delete=models.CASCADE, related_name='status_history')
+    previous_status = models.CharField(max_length=20, choices=HelpRequest.STATUS_CHOICES)
+    new_status = models.CharField(max_length=20, choices=HelpRequest.STATUS_CHOICES)
+    changed_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+    note = models.TextField(blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'help_request_status_history'
+        indexes = [
+            models.Index(fields=['help_request']),
+            models.Index(fields=['new_status', 'changed_at']),
+        ]
+
+    def __str__(self):
+        return f"HelpRequest {self.help_request_id}: {self.previous_status}->{self.new_status}"
+
+
+class TaskAssignmentStatusHistory(models.Model):
+    """Audit trail for volunteer task assignments."""
+    id = models.AutoField(primary_key=True)
+    task = models.ForeignKey(TaskAssignment, on_delete=models.CASCADE, related_name='status_history')
+    previous_status = models.CharField(max_length=20, choices=TaskAssignment.STATUS_CHOICES)
+    new_status = models.CharField(max_length=20, choices=TaskAssignment.STATUS_CHOICES)
+    changed_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+    note = models.TextField(blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'task_assignment_status_history'
+        indexes = [
+            models.Index(fields=['task']),
+            models.Index(fields=['new_status', 'changed_at']),
+        ]
+
+    def __str__(self):
+        return f"Task {self.task_id}: {self.previous_status}->{self.new_status}"
+
+
+class TransportTrip(models.Model):
+    """Represents a scheduled or completed transport route."""
+    TRIP_STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('en_route', 'En Route'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    transport = models.ForeignKey(Transport, on_delete=models.CASCADE, related_name='trips')
+    origin = models.CharField(max_length=255)
+    destination = models.CharField(max_length=255)
+    departure_time = models.DateTimeField()
+    arrival_time = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=TRIP_STATUS_CHOICES, default='scheduled')
+    cargo_description = models.TextField(blank=True)
+    assigned_resources = models.ManyToManyField('relief.Resource', blank=True, related_name='transport_trips')
+    assigned_volunteers = models.ManyToManyField('users.User', blank=True, related_name='transport_trips', limit_choices_to={'role': 'volunteer'})
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'transport_trips'
+        indexes = [
+            models.Index(fields=['transport']),
+            models.Index(fields=['status', 'departure_time']),
+        ]
+
+    def __str__(self):
+        return f"{self.transport.vehicle_number}: {self.origin} -> {self.destination} ({self.status})"

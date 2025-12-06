@@ -26,11 +26,15 @@ class Camp(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
                                     validators=[MinValueValidator(-180), MaxValueValidator(180)])
     capacity = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(10000)])
+    population_capacity = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(20000)])
     contact_person = models.CharField(max_length=100)
     contact_phone = models.CharField(max_length=15,
                                      validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')])
     email = models.EmailField(blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='active')
+    coverage_radius_km = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+                                            validators=[MinValueValidator(0)])
+    service_area_description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

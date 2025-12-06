@@ -11,7 +11,15 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ('role', 'is_staff', 'is_active')
     search_fields = ('username', 'email', 'phone')
     ordering = ('username',)
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'date_joined', 'last_login')
+    
+    # Make role field editable in admin
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'phone', 'address')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'role', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined', 'created_at', 'updated_at')}),
+    )
 
 
 # -----------------------------

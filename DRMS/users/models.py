@@ -155,6 +155,20 @@ class Victim(models.Model):
         blank=True,
         validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$', message='Enter a valid phone number')]
     )
+    special_needs = models.TextField(blank=True)
+    medical_conditions = models.TextField(blank=True)
+    priority_level = models.CharField(
+        max_length=10,
+        choices=[
+            ('low', 'Low'),
+            ('medium', 'Medium'),
+            ('high', 'High'),
+            ('critical', 'Critical'),
+        ],
+        default='medium'
+    )
+    is_high_risk = models.BooleanField(default=False)
+    emergency_supplies_needed = models.TextField(blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
