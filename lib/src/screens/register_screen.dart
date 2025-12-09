@@ -1,0 +1,303 @@
+// lib/src/screens/register_screen.dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../widgets/app_layout.dart';
+
+class RegisterScreen extends StatefulWidget {
+  final VoidCallback onNavigateToLogin;
+  const RegisterScreen({super.key, required this.onNavigateToLogin});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+
+  String _role = 'victim';
+  bool _success = false;
+  Timer? _redirectTimer;
+
+  late final AnimationController _entranceController;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _fadeAnim = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _redirectTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleRegister() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Mock register success flow
+    setState(() => _success = true);
+
+    // After 2s, navigate back to login (as in React)
+    _redirectTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        widget.onNavigateToLogin();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = const Color(0xFF007BFF);
+
+    return Scaffold(
+      body: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade50, Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: AppLayout(
+            padding: EdgeInsets.zero,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: _success
+                  ? _buildSuccessView(primary)
+                  : _buildForm(context, primary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessView(Color primary) {
+    return ScaleTransition(
+      scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+        CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+      ),
+      child: Column(
+        key: const ValueKey('success'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 40),
+          Icon(Icons.check_circle, size: 80, color: Colors.green.shade600),
+          const SizedBox(height: 16),
+          Text(
+            'Registration Successful!',
+            style: TextStyle(
+              color: Colors.green.shade700,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Redirecting to login...',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context, Color primary) {
+    return SlideTransition(
+      position: _slideAnim,
+      child: FadeTransition(
+        opacity: _fadeAnim,
+        child: Column(
+          key: const ValueKey('form'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Back button
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: widget.onNavigateToLogin,
+                icon: const Icon(Icons.arrow_left),
+                label: const Text('Back to Login'),
+                style: TextButton.styleFrom(foregroundColor: Colors.black87),
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            Card(
+              elevation: 6,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Text(
+                        'Create Account',
+                        style: TextStyle(
+                          color: primary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Join ReliefConnect today',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Name
+                      TextFormField(
+                        controller: _nameCtrl,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.person),
+                          labelText: 'Full Name',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          isDense: true,
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Enter full name'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Email
+                      TextFormField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.mail),
+                          labelText: 'Email',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          isDense: true,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter email';
+                          }
+                          if (!v.contains('@')) {
+                            return 'Enter valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Password
+                      TextFormField(
+                        controller: _passwordCtrl,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.lock),
+                          labelText: 'Password',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          isDense: true,
+                        ),
+                        validator: (v) =>
+                            (v == null || v.length < 6) ? 'Min 6 chars' : null,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Role selection
+                      DropdownButtonFormField<String>(
+                        initialValue: _role,
+                        decoration: InputDecoration(
+                          labelText: 'Role',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'victim',
+                            child: Text('Victim (Need Help)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'donor',
+                            child: Text('Donor (Give Aid)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'volunteer',
+                            child: Text('Volunteer'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'admin',
+                            child: Text('Admin'),
+                          ),
+                        ],
+                        onChanged: (val) =>
+                            setState(() => _role = val ?? 'victim'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Sign Up button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _handleRegister,
+                          style:
+                              ElevatedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                              ).copyWith(
+                                backgroundColor:
+                                    WidgetStateProperty.resolveWith((states) {
+                                      // gradient-like look using primary color
+                                      return Colors.blue;
+                                    }),
+                              ),
+                          child: const Text('Sign Up'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

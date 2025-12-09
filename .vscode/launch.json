@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "relief",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/src/main.dart"
+    },
+    {
+      "name": "relief (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/src/main.dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "relief (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/src/main.dart",
+      "flutterMode": "release"
+    }
+  ]
+}
