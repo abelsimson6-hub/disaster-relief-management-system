@@ -76,6 +76,8 @@ class _LoginScreenState extends State<LoginScreen>
         return 'Volunteer';
       case RoleType.admin:
         return 'Admin';
+      case RoleType.campAdmin:
+        return 'Camp Admin';
       case RoleType.victim:
         return 'Victim';
     }

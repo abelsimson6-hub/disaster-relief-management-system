@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import 'package:relief/src/app_state.dart';
 import 'package:relief/src/screens/admin_dashboard.dart';
+import 'package:relief/src/screens/camp_admin_dashboard.dart';
 import 'package:relief/src/screens/donation_details.dart';
 import 'package:relief/src/screens/donor_dashboard.dart';
 import 'package:relief/src/screens/login_screen.dart';
@@ -12,10 +15,12 @@ import 'package:relief/src/screens/role_selection_screen.dart';
 import 'package:relief/src/screens/splash_screen.dart';
 import 'package:relief/src/screens/victim_dashboard.dart';
 import 'package:relief/src/screens/volunteer_dashboard.dart';
-import 'app_state.dart';
+import 'package:relief/src/screens/welcome_screen.dart';
 
 void main() {
-  runApp(ChangeNotifierProvider(create: (_) => AppState(), child: MyApp()));
+  runApp(
+    ChangeNotifierProvider(create: (_) => AppState(), child: const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -24,22 +29,21 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'ReliefConnect',
       theme: ThemeData(
-        primaryColor: Color(0xFF007BFF),
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          secondary: Colors.blueAccent,
-        ),
+        primaryColor: const Color(0xFF007BFF),
         scaffoldBackgroundColor: Colors.grey.shade50,
-        appBarTheme: AppBarTheme(backgroundColor: Color(0xFF007BFF)),
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF007BFF)),
       ),
+
       home: SafeArea(
         child: Container(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 420),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Builder(
               builder: (context) {
                 switch (appState.currentScreen) {
@@ -47,20 +51,27 @@ class MyApp extends StatelessWidget {
                     return SplashScreen(
                       onComplete: appState.handleSplashComplete,
                     );
+
+                  case Screen.welcome:
+                    return const WelcomeScreen();
+
                   case Screen.roleSelection:
                     return RoleSelectionScreen(
                       onSelectRole: appState.handleRoleSelection,
                     );
+
                   case Screen.login:
                     return LoginScreen(
+                      selectedRole: appState.userRole,
                       onLogin: appState.handleLogin,
                       onNavigateToRegister: appState.handleNavigateToRegister,
-                      selectedRole: appState.userRole,
                     );
+
                   case Screen.register:
                     return RegisterScreen(
                       onNavigateToLogin: appState.handleNavigateToLogin,
                     );
+
                   case Screen.victimDashboard:
                     return VictimDashboard(
                       onNavigateToMap: appState.handleNavigateToMap,
@@ -68,6 +79,7 @@ class MyApp extends StatelessWidget {
                       onNavigateToRequestDetails:
                           appState.handleNavigateToRequestDetails,
                     );
+
                   case Screen.donorDashboard:
                     return DonorDashboard(
                       onNavigateToMap: appState.handleNavigateToMap,
@@ -75,6 +87,7 @@ class MyApp extends StatelessWidget {
                       onNavigateToDonationDetails:
                           appState.handleNavigateToDonationDetails,
                     );
+
                   case Screen.volunteerDashboard:
                     return VolunteerDashboard(
                       onNavigateToMap: appState.handleNavigateToMap,
@@ -82,25 +95,35 @@ class MyApp extends StatelessWidget {
                       onNavigateToRequestDetails:
                           appState.handleNavigateToRequestDetails,
                     );
+
                   case Screen.adminDashboard:
                     return AdminDashboard(
                       onNavigateToProfile: appState.handleNavigateToProfile,
                     );
+
+                  case Screen.campAdminDashboard:
+                    return CampAdminDashboard(
+                      onNavigateToProfile: appState.handleNavigateToProfile,
+                    );
+
                   case Screen.requestDetails:
                     return RequestDetails(
                       onBack: appState.handleBackFromDetails,
                     );
+
                   case Screen.donationDetails:
                     return DonationDetailsScreen(
                       onBack: appState.handleBackFromDetails,
                     );
+
                   case Screen.map:
                     return MapScreen(onBack: appState.handleBackFromDetails);
+
                   case Screen.profile:
                     return ProfileScreen(
+                      role: appState.userRole,
                       onBack: appState.handleBackFromProfile,
                       onLogout: appState.handleLogout,
-                      role: appState.userRole,
                     );
                 }
               },

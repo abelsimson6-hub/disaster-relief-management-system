@@ -53,6 +53,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         fg = Colors.purple.shade700;
         icon = Icons.shield;
         break;
+      case RoleType.campAdmin:
+        bg = Colors.purple.shade100;
+        fg = Colors.purple.shade700;
+        icon = Icons.shield;
+        break;
       case RoleType.volunteer:
         bg = Colors.green.shade100;
         fg = Colors.green.shade700;
@@ -124,6 +129,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           colors: [Color(0xFF16A34A), Color(0xFF059669)],
         );
       case RoleType.admin:
+        return const LinearGradient(
+          colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+        );
+      case RoleType.campAdmin:
         return const LinearGradient(
           colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
         );

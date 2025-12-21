@@ -2,20 +2,22 @@ import 'package:flutter/material.dart';
 
 enum Screen {
   splash,
+  welcome,
   roleSelection,
   login,
   register,
   victimDashboard,
-  donorDashboard,
   volunteerDashboard,
+  donorDashboard,
   adminDashboard,
+  campAdminDashboard,
   requestDetails,
   donationDetails,
   map,
   profile,
 }
 
-enum RoleType { victim, donor, volunteer, admin }
+enum RoleType { victim, donor, volunteer, admin, campAdmin }
 
 class AppState extends ChangeNotifier {
   Screen currentScreen = Screen.splash;
@@ -57,6 +59,10 @@ class AppState extends ChangeNotifier {
         _setScreen(Screen.adminDashboard);
         previousScreen = Screen.adminDashboard;
         break;
+      case RoleType.campAdmin:
+        _setScreen(Screen.campAdminDashboard);
+        previousScreen = Screen.campAdminDashboard;
+        break;
     }
   }
 
@@ -70,4 +76,6 @@ class AppState extends ChangeNotifier {
   void handleNavigateToMap() => _setScreen(Screen.map);
   void handleBackFromDetails() => _setScreen(previousScreen);
   void handleBackFromProfile() => _setScreen(previousScreen);
+
+  void startRegistration(victim) {}
 }

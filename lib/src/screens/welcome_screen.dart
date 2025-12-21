@@ -1,33 +1,15 @@
-// lib/src/screens/role_selection_screen.dart
+// lib/src/screens/welcome_screen.dart
 
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../app_state.dart';
-import '../widgets/app_layout.dart';
+import 'package:provider/provider.dart';
+import 'package:relief/src/app_state.dart';
+import 'package:relief/src/widgets/app_layout.dart';
 
-class RoleSelectionScreen extends StatefulWidget {
-  final void Function(RoleType) onSelectRole;
-  const RoleSelectionScreen({super.key, required this.onSelectRole});
-
-  @override
-  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
-}
-
-class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  final List<bool> _visible = [false, false, false, false];
-  bool showAdminOptions = false;
-
-  @override
-  void initState() {
-    super.initState();
-    for (var i = 0; i < _visible.length; i++) {
-      Future.delayed(Duration(milliseconds: 100 * i), () {
-        if (mounted) {
-          setState(() => _visible[i] = true);
-        }
-      });
-    }
-  }
+/// Public welcome screen shown after splash.
+/// This screen ONLY navigates forward.
+/// Role selection happens in RoleSelectionScreen.
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
 
   Widget _roleCard({
     required BuildContext context,
@@ -35,19 +17,24 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     required String title,
     required String subtitle,
     required List<Color> gradient,
-    required bool visible,
     required VoidCallback onTap,
   }) {
-    final card = Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Theme.of(context).cardColor,
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Theme.of(context).cardColor,
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Container(
@@ -71,7 +58,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -82,23 +72,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 400),
-      opacity: visible ? 1 : 0,
-      child: AnimatedSlide(
-        duration: const Duration(milliseconds: 400),
-        offset: visible ? Offset.zero : const Offset(-0.06, 0),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
-            child: card,
-          ),
         ),
       ),
     );
@@ -143,11 +116,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'How would you like to help today?',
+                'How would you like to get started today?',
                 style: TextStyle(color: Colors.grey[700]),
               ),
               const SizedBox(height: 20),
 
+              /// ROLE CARDS
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 24),
@@ -158,74 +132,42 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       title: 'I Need Help',
                       subtitle: 'Request emergency assistance',
                       gradient: [Colors.red.shade400, Colors.red.shade300],
-                      visible: _visible[0],
-                      onTap: () => widget.onSelectRole(RoleType.victim),
+                      onTap: () =>
+                          context.read<AppState>().handleNavigateToRegister(),
                     ),
                     const SizedBox(height: 12),
-
                     _roleCard(
                       context: context,
                       icon: Icons.volunteer_activism,
                       title: 'I Want to Donate',
                       subtitle: 'Provide aid and resources',
                       gradient: [primary, const Color(0xFF0056B3)],
-                      visible: _visible[1],
-                      onTap: () => widget.onSelectRole(RoleType.donor),
+                      onTap: () =>
+                          context.read<AppState>().handleNavigateToRegister(),
                     ),
                     const SizedBox(height: 12),
-
                     _roleCard(
                       context: context,
                       icon: Icons.group,
                       title: 'I Want to Volunteer',
-                      subtitle: 'Help distribute aid',
+                      subtitle: 'Help distribute aid on the ground',
                       gradient: [Colors.green.shade500, Colors.green.shade600],
-                      visible: _visible[2],
-                      onTap: () => widget.onSelectRole(RoleType.volunteer),
+                      onTap: () =>
+                          context.read<AppState>().handleNavigateToRegister(),
                     ),
                     const SizedBox(height: 12),
-
                     _roleCard(
                       context: context,
                       icon: Icons.shield,
                       title: 'Admin Access',
-                      subtitle: 'Manage and coordinate',
+                      subtitle: 'Sign in as Admin or Camp Admin',
                       gradient: [
                         Colors.purple.shade500,
                         Colors.purple.shade600,
                       ],
-                      visible: _visible[3],
-                      onTap: () {
-                        setState(() {
-                          showAdminOptions = !showAdminOptions;
-                        });
-                      },
+                      onTap: () =>
+                          context.read<AppState>().handleNavigateToRegister(),
                     ),
-
-                    if (showAdminOptions) ...[
-                      const SizedBox(height: 12),
-
-                      _roleCard(
-                        context: context,
-                        icon: Icons.security,
-                        title: 'Admin',
-                        subtitle: 'System administrator',
-                        gradient: [Colors.deepPurple, Colors.deepPurpleAccent],
-                        visible: true,
-                        onTap: () => widget.onSelectRole(RoleType.admin),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _roleCard(
-                        context: context,
-                        icon: Icons.home_work,
-                        title: 'Camp Admin',
-                        subtitle: 'Manage relief camps',
-                        gradient: [Colors.indigo, Colors.indigoAccent],
-                        visible: true,
-                        onTap: () => widget.onSelectRole(RoleType.campAdmin),
-                      ),
-                    ],
                   ],
                 ),
               ),
