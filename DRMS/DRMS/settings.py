@@ -154,22 +154,14 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration for Flutter/Mobile apps
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    # Add your Flutter web app URL here if deploying
-]
-
-# For development only - allows all origins
-# REMOVE THIS IN PRODUCTION and use CORS_ALLOWED_ORIGINS above
+# For development - allows all origins (including Flutter web on any port)
+# This setting allows requests from any origin, including Flutter web running on any localhost port
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow credentials (cookies, authorization headers)
 CORS_ALLOW_CREDENTIALS = True
 
-# Allowed headers for CORS
+# Allowed headers for CORS (must include all headers your app sends)
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -182,7 +174,7 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# Allowed methods
+# Allowed HTTP methods
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',

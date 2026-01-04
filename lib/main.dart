@@ -63,7 +63,6 @@ class MyApp extends StatelessWidget {
                   case Screen.login:
                     return LoginScreen(
                       selectedRole: appState.userRole,
-                      onLogin: appState.handleLogin,
                       onNavigateToRegister: appState.handleNavigateToRegister,
                     );
 

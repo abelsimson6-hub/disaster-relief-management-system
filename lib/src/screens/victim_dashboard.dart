@@ -1,7 +1,8 @@
 // lib/src/screens/victim_dashboard.dart
 import 'package:flutter/material.dart';
+import 'package:relief/src/services/api_service.dart';
 
-class VictimDashboard extends StatelessWidget {
+class VictimDashboard extends StatefulWidget {
   final VoidCallback onNavigateToMap;
   final VoidCallback onNavigateToProfile;
   final VoidCallback onNavigateToRequestDetails;
@@ -12,6 +13,134 @@ class VictimDashboard extends StatelessWidget {
     required this.onNavigateToProfile,
     required this.onNavigateToRequestDetails,
   });
+
+  @override
+  State<VictimDashboard> createState() => _VictimDashboardState();
+}
+
+class _VictimDashboardState extends State<VictimDashboard> {
+  List<dynamic> _helpRequests = [];
+  List<dynamic> _disasters = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Load help requests and disasters in parallel
+      final requestsResult = await ApiService.getHelpRequests();
+      final disastersResult = await ApiService.getDisasters();
+
+      if (mounted) {
+        setState(() {
+          if (requestsResult['success'] == true) {
+            _helpRequests = requestsResult['data'] ?? [];
+          }
+          if (disastersResult['success'] == true) {
+            _disasters = disastersResult['data'] ?? [];
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading data: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleSOS() async {
+    // Show dialog to create help request
+    final descriptionController = TextEditingController();
+    final locationController = TextEditingController();
+    int? selectedDisasterId;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send SOS Request'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_disasters.isNotEmpty)
+                DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(labelText: 'Disaster'),
+                  items: _disasters.map((d) => DropdownMenuItem<int>(
+                    value: d['id'] as int,
+                    child: Text(d['name']?.toString() ?? 'Unknown'),
+                  )).toList(),
+                  onChanged: (val) => selectedDisasterId = val,
+                ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (selectedDisasterId != null && descriptionController.text.isNotEmpty) {
+                Navigator.pop(context, {
+                  'disaster_id': selectedDisasterId,
+                  'description': descriptionController.text,
+                  'location': locationController.text.isNotEmpty ? locationController.text : 'Unknown',
+                });
+              }
+            },
+            child: const Text('Send SOS'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      final createResult = await ApiService.createHelpRequest(
+        disasterId: result['disaster_id'] as int,
+        description: result['description'] as String,
+        location: result['location'] as String,
+      );
+
+      if (mounted) {
+        if (createResult['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('SOS request sent successfully')),
+          );
+          _loadData(); // Reload data
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${createResult['error']}')),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +154,17 @@ class VictimDashboard extends StatelessWidget {
       {'name': 'Medicine', 'icon': Icons.favorite, 'color': Colors.red.shade700, 'bg': Colors.red.shade50},
     ];
 
-    final alerts = [
-      {'type': 'Flood Warning', 'level': 'high', 'location': 'Downtown Area', 'time': '10 mins ago'},
-      {'type': 'Safe Zone Active', 'level': 'safe', 'location': 'City Hall', 'time': '1 hour ago'},
-    ];
+    // Convert disasters to alerts format for display
+    final alerts = _disasters.take(5).map((d) {
+      final severity = d['severity'] ?? 'medium';
+      return {
+        'type': d['name'] ?? 'Disaster Alert',
+        'level': severity == 'high' || severity == 'critical' ? 'high' : 'safe',
+        'location': d['location'] ?? 'Unknown',
+        'time': d['start_date'] ?? 'Recent',
+        'id': d['id'],
+      };
+    }).toList();
 
     final emergencyContacts = [
       {'name': 'Police', 'number': '911', 'icon': Icons.security},
@@ -84,9 +220,7 @@ class VictimDashboard extends StatelessWidget {
                       const SizedBox(height: 14),
                       // SOS Button
                       _ScaleOnTap(
-                        onTap: () {
-                          // implement emergency action
-                        },
+                        onTap: _handleSOS,
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
@@ -119,6 +253,108 @@ class VictimDashboard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Loading indicator
+                      if (_isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+
+                      // Error message
+                      if (_errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: _loadData,
+                                color: Colors.red.shade700,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // My Help Requests
+                      if (!_isLoading && _helpRequests.isNotEmpty) ...[
+                        Row(children: [
+                          Icon(Icons.help_outline, color: primary, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('My Help Requests', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        ]),
+                        const SizedBox(height: 10),
+                        ..._helpRequests.take(3).map((request) {
+                          final status = request['status'] ?? 'pending';
+                          final statusColors = {
+                            'pending': Colors.orange,
+                            'in_progress': Colors.blue,
+                            'resolved': Colors.green,
+                            'cancelled': Colors.grey,
+                          };
+                          final statusColor = statusColors[status] ?? Colors.grey;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: statusColor.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 4))],
+                              border: Border(left: BorderSide(color: statusColor.shade700, width: 4)),
+                            ),
+                            child: ListTile(
+                              title: Text(
+                                request['description'] ?? 'Help Request',
+                                style: TextStyle(color: statusColor.shade900, fontWeight: FontWeight.w600),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (request['location'] != null)
+                                    Row(children: [
+                                      const Icon(Icons.place, size: 14, color: Colors.grey),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(request['location'], style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                                      ),
+                                    ]),
+                                  if (request['disaster_name'] != null)
+                                    Text('Disaster: ${request['disaster_name']}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                ],
+                              ),
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  status.toUpperCase().replaceAll('_', ' '),
+                                  style: TextStyle(color: statusColor.shade700, fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 18),
+                      ],
+
                       // Live alerts
                       Row(children: [
                         Icon(Icons.notifications, color: primary, size: 20),
@@ -126,8 +362,13 @@ class VictimDashboard extends StatelessWidget {
                         const Text('Live Disaster Alerts', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       ]),
                       const SizedBox(height: 10),
-                      Column(
-                        children: alerts.map((alert) {
+                      alerts.isEmpty && !_isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('No active disasters', style: TextStyle(color: Colors.grey)),
+                            )
+                          : Column(
+                              children: alerts.map((alert) {
                           final isHigh = alert['level'] == 'high';
                           return Container(
                             margin: const EdgeInsets.only(bottom: 10),
@@ -170,7 +411,7 @@ class VictimDashboard extends StatelessWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         children: aidTypes.map((aid) {
                           return _ScaleOnTap(
-                            onTap: onNavigateToRequestDetails,
+                            onTap: widget.onNavigateToRequestDetails,
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
@@ -204,7 +445,7 @@ class VictimDashboard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: onNavigateToMap,
+                              onPressed: widget.onNavigateToMap,
                               icon: const Icon(Icons.map),
                               label: const Text('Nearby Shelters'),
                               style: ElevatedButton.styleFrom(
@@ -296,9 +537,9 @@ class VictimDashboard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _NavButton(icon: Icons.home, label: 'Home', active: true, color: primary, onTap: () {}),
-                  _NavButton(icon: Icons.map, label: 'Map', active: false, onTap: onNavigateToMap),
+                  _NavButton(icon: Icons.map, label: 'Map', active: false, onTap: widget.onNavigateToMap),
                   _NavButton(icon: Icons.notifications, label: 'Alerts', active: false, onTap: () {}),
-                  _NavButton(icon: Icons.person, label: 'Profile', active: false, onTap: onNavigateToProfile),
+                  _NavButton(icon: Icons.person, label: 'Profile', active: false, onTap: widget.onNavigateToProfile),
                 ],
               ),
             ),

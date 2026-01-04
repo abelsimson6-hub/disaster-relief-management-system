@@ -1,16 +1,15 @@
 // lib/src/screens/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:relief/src/app_state.dart';
 import '../widgets/app_layout.dart';
 
 class LoginScreen extends StatefulWidget {
-  final void Function(RoleType) onLogin;
   final VoidCallback onNavigateToRegister;
   final RoleType selectedRole;
 
   const LoginScreen({
     super.key,
-    required this.onLogin,
     required this.onNavigateToRegister,
     required this.selectedRole,
   });
@@ -22,8 +21,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _emailCtrl;
+  late final TextEditingController _usernameCtrl;
   late final TextEditingController _passwordCtrl;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   late final AnimationController _animController;
   late final Animation<Offset> _slideAnim;
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _emailCtrl = TextEditingController();
+    _usernameCtrl = TextEditingController();
     _passwordCtrl = TextEditingController();
 
     _animController = AnimationController(
@@ -55,16 +56,28 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     _animController.dispose();
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Use selectedRole passed from parent (mock login behavior)
-      widget.onLogin(widget.selectedRole);
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final appState = Provider.of<AppState>(context, listen: false);
+      await appState.handleLogin(_usernameCtrl.text.trim(), _passwordCtrl.text);
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = appState.errorMessage;
+        });
+      }
     }
   }
 
@@ -133,13 +146,36 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                             const SizedBox(height: 18),
 
-                            // Email field
+                            // Error message display
+                            if (_errorMessage != null)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // Username field
                             TextFormField(
-                              controller: _emailCtrl,
-                              keyboardType: TextInputType.emailAddress,
+                              controller: _usernameCtrl,
                               decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.mail),
-                                labelText: 'Email',
+                                prefixIcon: const Icon(Icons.person),
+                                labelText: 'Username',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -147,10 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) {
-                                  return 'Enter email';
-                                }
-                                if (!v.contains('@')) {
-                                  return 'Enter valid email';
+                                  return 'Enter username';
                                 }
                                 return null;
                               },
@@ -191,9 +224,15 @@ class _LoginScreenState extends State<LoginScreen>
 
                             // Login button with trailing arrow
                             ElevatedButton.icon(
-                              onPressed: _handleLogin,
-                              icon: const Icon(Icons.arrow_forward),
-                              label: const Text('Login'),
+                              onPressed: _isLoading ? null : _handleLogin,
+                              icon: _isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.arrow_forward),
+                              label: Text(_isLoading ? 'Logging in...' : 'Login'),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 48),
                                 shape: RoundedRectangleBorder(

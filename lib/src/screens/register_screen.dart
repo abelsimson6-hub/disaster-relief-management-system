@@ -1,6 +1,7 @@
 // lib/src/screens/register_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:relief/src/services/api_service.dart';
 import '../widgets/app_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -20,6 +21,8 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   String _role = 'victim';
   bool _success = false;
+  bool _isLoading = false;
+  String? _errorMessage;
   Timer? _redirectTimer;
 
   late final AnimationController _entranceController;
@@ -54,18 +57,47 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.dispose();
   }
 
-  void _handleRegister() {
+  void _handleRegister() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    // Mock register success flow
-    setState(() => _success = true);
-
-    // After 2s, navigate back to login (as in React)
-    _redirectTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        widget.onNavigateToLogin();
-      }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _success = false;
     });
+
+    try {
+      final result = await ApiService.register(
+        username: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+        role: _role,
+      );
+
+      if (mounted) {
+        if (result['success'] == true) {
+          setState(() => _success = true);
+          // After 2s, navigate back to login
+          _redirectTimer = Timer(const Duration(seconds: 2), () {
+            if (mounted) {
+              widget.onNavigateToLogin();
+            }
+          });
+        } else {
+          setState(() {
+            _errorMessage = result['error'] ?? 'Registration failed';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -174,19 +206,43 @@ class _RegisterScreenState extends State<RegisterScreen>
                       ),
                       const SizedBox(height: 18),
 
-                      // Name
+                      // Error message display
+                      if (_errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Username field (using name field for username)
                       TextFormField(
                         controller: _nameCtrl,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.person),
-                          labelText: 'Full Name',
+                          labelText: 'Username',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           isDense: true,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Enter full name'
+                            ? 'Enter username'
                             : null,
                       ),
                       const SizedBox(height: 12),
@@ -256,8 +312,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                             child: Text('Volunteer'),
                           ),
                           DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('Admin'),
+                            value: 'camp_admin',
+                            child: Text('Camp Admin'),
                           ),
                         ],
                         onChanged: (val) =>
@@ -270,7 +326,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _handleRegister,
+                          onPressed: _isLoading || _success ? null : _handleRegister,
                           style:
                               ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
@@ -287,7 +343,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       return Colors.blue;
                                     }),
                               ),
-                          child: const Text('Sign Up'),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Sign Up'),
                         ),
                       ),
                     ],
