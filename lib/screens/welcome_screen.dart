@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:relief/src/app_state.dart';
-import 'package:relief/src/widgets/app_layout.dart';
+import 'package:relief/app_state.dart';
+import 'package:relief/widgets/app_layout.dart';
 
 /// Public welcome screen shown after splash.
 /// This screen ONLY navigates forward.

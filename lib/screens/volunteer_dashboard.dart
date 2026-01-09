@@ -1,5 +1,6 @@
 // lib/src/screens/volunteer_dashboard.dart
 import 'package:flutter/material.dart';
+import 'package:relief/services/api_service.dart';
 
 class VolunteerDashboard extends StatefulWidget {
   final VoidCallback onNavigateToProfile;
@@ -21,49 +22,93 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
   String filter = 'all'; // 'all' | 'urgent' | 'nearby' | 'assigned'
   bool isActive = true;
   final TextEditingController _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _requests = [];
+  List<Map<String, dynamic>> _tasks = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  final List<Map<String, dynamic>> _requests = [
-    {
-      'id': 1,
-      'name': 'Sarah Johnson',
-      'need': 'Medical Supplies - Insulin',
-      'location': 'Downtown Medical Center',
-      'distance': '1.2 km',
-      'urgency': 'urgent',
-      'time': '15 mins ago',
-      'status': 'available',
-    },
-    {
-      'id': 2,
-      'name': 'Michael Chen',
-      'need': 'Food and Water',
-      'location': 'West District Shelter',
-      'distance': '2.5 km',
-      'urgency': 'normal',
-      'time': '1 hour ago',
-      'status': 'available',
-    },
-    {
-      'id': 3,
-      'name': 'Emily Davis',
-      'need': 'Transportation Needed',
-      'location': 'East Zone Hospital',
-      'distance': '3.8 km',
-      'urgency': 'urgent',
-      'time': '2 hours ago',
-      'status': 'assigned',
-    },
-    {
-      'id': 4,
-      'name': 'Robert Wilson',
-      'need': 'Temporary Shelter',
-      'location': 'North Community Center',
-      'distance': '0.8 km',
-      'urgency': 'normal',
-      'time': '3 hours ago',
-      'status': 'available',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final requestsResult = await ApiService.getHelpRequests();
+      final tasksResult = await ApiService.getTasks();
+
+      if (mounted) {
+        setState(() {
+          if (requestsResult['success'] == true) {
+            final requests = requestsResult['data'] ?? [];
+            _requests = requests.map<Map<String, dynamic>>((r) {
+              return {
+                'id': r['id'],
+                'name': r['victim_name'] ?? 'Unknown',
+                'need': r['description'] ?? '',
+                'location': r['location'] ?? 'Unknown',
+                'distance': 'N/A',
+                'urgency': r['status'] == 'pending' ? 'urgent' : 'normal',
+                'time': _formatTime(r['requested_at']),
+                'status': r['status'] == 'pending' ? 'available' : r['status'],
+                'raw': r,
+              };
+            }).toList();
+          }
+          if (tasksResult['success'] == true) {
+            final tasks = tasksResult['data'] ?? [];
+            _tasks = tasks.map<Map<String, dynamic>>((t) {
+              return {
+                'id': t['id'],
+                'name': t['volunteer_name'] ?? 'Unknown',
+                'need': t['task_description'] ?? t['help_request_description'] ?? '',
+                'location': 'N/A',
+                'distance': 'N/A',
+                'urgency': t['status'] == 'assigned' ? 'urgent' : 'normal',
+                'time': _formatTime(t['assigned_at']),
+                'status': t['status'] ?? 'available',
+                'raw': t,
+              };
+            }).toList();
+            // Merge tasks into requests for display
+            _requests = [..._requests, ..._tasks];
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading data: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatTime(String? timeStr) {
+    if (timeStr == null) return 'Unknown';
+    try {
+      final time = DateTime.parse(timeStr);
+      final now = DateTime.now();
+      final diff = now.difference(time);
+      if (diff.inMinutes < 60) {
+        return '${diff.inMinutes} mins ago';
+      } else if (diff.inHours < 24) {
+        return '${diff.inHours} hours ago';
+      } else {
+        return '${diff.inDays} days ago';
+      }
+    } catch (e) {
+      return timeStr;
+    }
+  }
 
   List<Map<String, dynamic>> get _filteredRequests {
     var list = _requests;
@@ -107,12 +152,29 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     return Scaffold(
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 92),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_errorMessage != null)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_errorMessage!, style: TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 92),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(

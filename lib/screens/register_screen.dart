@@ -1,7 +1,9 @@
 // lib/src/screens/register_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:relief/src/services/api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:relief/services/api_service.dart';
+import 'package:relief/app_state.dart';
 import '../widgets/app_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -76,8 +78,23 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       if (mounted) {
         if (result['success'] == true) {
+          // If tokens were returned (auto-login after registration)
+          if (result['access'] != null && result['refresh'] != null) {
+            // Tokens are already saved by ApiService.register
+            // Get user profile to navigate to dashboard
+            final profileResult = await ApiService.getUserProfile();
+            if (profileResult['success'] == true && mounted) {
+              final profileData = profileResult['data'];
+              final roleStr = profileData['role'] ?? _role;
+              // Get AppState and navigate to dashboard
+              final appState = Provider.of<AppState>(context, listen: false);
+              appState.userRole = AppState.roleFromString(roleStr);
+              appState.navigateToDashboard(appState.userRole);
+              return;
+            }
+          }
+          // If no tokens, show success and redirect to login
           setState(() => _success = true);
-          // After 2s, navigate back to login
           _redirectTimer = Timer(const Duration(seconds: 2), () {
             if (mounted) {
               widget.onNavigateToLogin();

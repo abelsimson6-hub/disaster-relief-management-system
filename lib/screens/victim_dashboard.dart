@@ -1,6 +1,6 @@
 // lib/src/screens/victim_dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:relief/src/services/api_service.dart';
+import 'package:relief/services/api_service.dart';
 
 class VictimDashboard extends StatefulWidget {
   final VoidCallback onNavigateToMap;

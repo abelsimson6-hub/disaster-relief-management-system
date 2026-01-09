@@ -1,5 +1,6 @@
 // lib/src/screens/admin_dashboard.dart
 import 'package:flutter/material.dart';
+import 'package:relief/services/api_service.dart';
 
 class AdminDashboard extends StatefulWidget {
   final VoidCallback onNavigateToProfile;
@@ -11,32 +12,75 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-
-  final List<Map<String, dynamic>> stats = [
-    {'label': 'Total Users', 'value': '1,247', 'icon': Icons.people, 'colors': [Color(0xFF3B82F6), Color(0xFF2563EB)]},
-    {'label': 'Volunteers', 'value': '342', 'icon': Icons.verified_user, 'colors': [Color(0xFF34D399), Color(0xFF10B981)]},
-    {'label': 'Pending Requests', 'value': '28', 'icon': Icons.description, 'colors': [Color(0xFFF59E0B), Color(0xFFFBBF24)]},
-    {'label': 'Completed', 'value': '856', 'icon': Icons.trending_up, 'colors': [Color(0xFF8B5CF6), Color(0xFF7C3AED)]},
-  ];
-
-  final List<Map<String, String>> users = [
-    {'id': '1', 'name': 'John Doe', 'email': 'john@example.com', 'role': 'User', 'status': 'active'},
-    {'id': '2', 'name': 'Jane Smith', 'email': 'jane@example.com', 'role': 'Volunteer', 'status': 'active'},
-    {'id': '3', 'name': 'Bob Johnson', 'email': 'bob@example.com', 'role': 'User', 'status': 'inactive'},
-    {'id': '4', 'name': 'Alice Brown', 'email': 'alice@example.com', 'role': 'Volunteer', 'status': 'pending'},
-  ];
-
-  final List<Map<String, dynamic>> volunteers = [
-    {'id': '1', 'name': 'Sarah Wilson', 'tasks': 23, 'rating': 4.8, 'verified': true},
-    {'id': '2', 'name': 'Mike Chen', 'tasks': 15, 'rating': 4.6, 'verified': true},
-    {'id': '3', 'name': 'Emma Davis', 'tasks': 8, 'rating': 4.9, 'verified': false},
-    {'id': '4', 'name': 'Tom Anderson', 'tasks': 31, 'rating': 4.7, 'verified': true},
-  ];
+  List<Map<String, dynamic>> stats = [];
+  List<Map<String, String>> users = [];
+  List<Map<String, dynamic>> volunteers = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final dashboardResult = await ApiService.getAdminDashboard();
+
+      if (mounted) {
+        if (dashboardResult['success'] == true) {
+          final data = dashboardResult['data'];
+          setState(() {
+            stats = [
+              {
+                'label': 'Total Users',
+                'value': '${data['users']?['total'] ?? 0}',
+                'icon': Icons.people,
+                'colors': [Color(0xFF3B82F6), Color(0xFF2563EB)]
+              },
+              {
+                'label': 'Volunteers',
+                'value': '${data['users']?['volunteers'] ?? 0}',
+                'icon': Icons.verified_user,
+                'colors': [Color(0xFF34D399), Color(0xFF10B981)]
+              },
+              {
+                'label': 'Pending Requests',
+                'value': '${data['sos_requests']?['pending'] ?? 0}',
+                'icon': Icons.description,
+                'colors': [Color(0xFFF59E0B), Color(0xFFFBBF24)]
+              },
+              {
+                'label': 'Completed',
+                'value': '${data['sos_requests']?['resolved'] ?? 0}',
+                'icon': Icons.trending_up,
+                'colors': [Color(0xFF8B5CF6), Color(0xFF7C3AED)]
+              },
+            ];
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = dashboardResult['error'] ?? 'Failed to load dashboard data';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading data: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -60,6 +104,30 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   Widget build(BuildContext context) {
     final purpleStart = const Color(0xFF7C3AED);
     final purpleEnd = const Color(0xFF6D28D9);
+
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!, style: TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       body: Stack(

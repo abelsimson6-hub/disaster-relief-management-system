@@ -174,13 +174,13 @@ class ApiService {
     }
 
     // If token expired (401), try to refresh and retry once
-    if (response.statusCode == 401 && method.toUpperCase() == 'GET') {
+    if (response.statusCode == 401) {
       final refreshed = await refreshAccessToken();
       if (refreshed) {
         token = await getAccessToken();
         if (token != null) {
           requestHeaders['Authorization'] = 'Bearer $token';
-          // Retry the request
+          // Retry the request with new token
           switch (method.toUpperCase()) {
             case 'GET':
               response = await http.get(uri, headers: requestHeaders);
@@ -211,6 +211,10 @@ class ApiService {
               break;
           }
         }
+      } else {
+        // Token refresh failed, clear tokens and throw exception
+        await clearAll();
+        throw Exception('Authentication failed. Please login again.');
       }
     }
 
@@ -229,32 +233,66 @@ class ApiService {
           'username': username,
           'password': password,
         }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check if the server is running.');
+        },
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final accessToken = data['access'] as String;
-        final refreshToken = data['refresh'] as String;
-        
-        // Save tokens
-        await saveTokens(accessToken, refreshToken);
-        
-        // Get user profile to save user info (user_id and role)
-        // Note: User info will be saved by the calling code after login success
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final accessToken = data['access'] as String?;
+          final refreshToken = data['refresh'] as String?;
+          
+          if (accessToken == null || refreshToken == null) {
+            return {
+              'success': false,
+              'error': 'Invalid response from server: missing tokens',
+            };
+          }
+          
+          // Save tokens
+          await saveTokens(accessToken, refreshToken);
 
-        return {
-          'success': true,
-          'message': 'Login successful',
-          'access': accessToken,
-          'refresh': refreshToken,
-        };
+          return {
+            'success': true,
+            'message': 'Login successful',
+            'access': accessToken,
+            'refresh': refreshToken,
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'Failed to parse server response: ${e.toString()}',
+          };
+        }
       } else {
-        final errorData = jsonDecode(response.body);
+        String errorMessage = 'Login failed';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['detail'] ?? 
+                          errorData['error'] ?? 
+                          errorData['message'] ?? 
+                          'Login failed (Status: ${response.statusCode})';
+          } else {
+            errorMessage = 'Login failed (Status: ${response.statusCode})';
+          }
+        } catch (e) {
+          errorMessage = 'Login failed (Status: ${response.statusCode})';
+        }
         return {
           'success': false,
-          'error': errorData['detail'] ?? errorData['message'] ?? 'Login failed',
+          'error': errorMessage,
         };
       }
+    } on http.ClientException {
+      return {
+        'success': false,
+        'error': 'Cannot connect to server. Please make sure the backend is running at $baseUrl',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -280,22 +318,66 @@ class ApiService {
           'password': password,
           'role': role,
         }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check if the server is running.');
+        },
       );
 
       if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Registration successful',
-          'user_id': data['user_id'],
-        };
+        try {
+          final data = jsonDecode(response.body);
+          // If tokens are provided during registration, save them
+          if (data['access'] != null && data['refresh'] != null) {
+            await saveTokens(data['access'] as String, data['refresh'] as String);
+            // Save user info if available
+            if (data['user_id'] != null && data['username'] != null && data['role'] != null) {
+              await saveUserInfo(
+                data['user_id'] as int,
+                data['username'] as String,
+                data['role'] as String,
+              );
+            }
+          }
+          return {
+            'success': true,
+            'message': data['message'] ?? 'Registration successful',
+            'user_id': data['user_id'],
+            'access': data['access'],
+            'refresh': data['refresh'],
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'Failed to parse server response: ${e.toString()}',
+          };
+        }
       } else {
-        final errorData = jsonDecode(response.body);
+        String errorMessage = 'Registration failed';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          errorData['message'] ?? 
+                          'Registration failed (Status: ${response.statusCode})';
+          } else {
+            errorMessage = 'Registration failed (Status: ${response.statusCode})';
+          }
+        } catch (e) {
+          errorMessage = 'Registration failed (Status: ${response.statusCode})';
+        }
         return {
           'success': false,
-          'error': errorData['error'] ?? 'Registration failed',
+          'error': errorMessage,
         };
       }
+    } on http.ClientException {
+      return {
+        'success': false,
+        'error': 'Cannot connect to server. Please make sure the backend is running at $baseUrl',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -309,14 +391,51 @@ class ApiService {
     try {
       final response = await authenticatedRequest('/user/profile/');
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body),
-        };
+        try {
+          final profileData = jsonDecode(response.body);
+          // Handle both new consistent structure and legacy structure
+          if (profileData is Map<String, dynamic>) {
+            if (profileData['data'] != null) {
+              // New structure with success/data wrapper
+              return {
+                'success': true,
+                'data': profileData['data'],
+                'user': profileData['user'],
+                'role': profileData['role'],
+              };
+            } else {
+              // Direct profile data
+              return {
+                'success': true,
+                'data': profileData,
+              };
+            }
+          }
+          return {
+            'success': true,
+            'data': profileData,
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'error': 'Failed to parse profile data: ${e.toString()}',
+          };
+        }
       } else {
+        String errorMessage = 'Failed to get profile';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          'Failed to get profile (Status: ${response.statusCode})';
+          }
+        } catch (e) {
+          // Ignore JSON parse errors for error messages
+        }
         return {
           'success': false,
-          'error': 'Failed to get profile',
+          'error': errorMessage,
         };
       }
     } catch (e) {
@@ -333,20 +452,44 @@ class ApiService {
   static Future<Map<String, dynamic>> getHelpRequests({String? status}) async {
     try {
       String endpoint = '/sos-requests/';
-      if (status != null && status.isNotEmpty) {
-        endpoint += status == 'pending' ? 'pending/' : '';
+      if (status != null && status.isNotEmpty && status == 'pending') {
+        endpoint = '/sos-requests/pending/';
       }
       final response = await authenticatedRequest(endpoint);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': data is List ? data : (data['results'] ?? data),
-        };
+        // Handle paginated response from DRF
+        if (data is Map && data.containsKey('results')) {
+          return {
+            'success': true,
+            'data': data['results'] as List,
+          };
+        } else if (data is List) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        } else {
+          return {
+            'success': true,
+            'data': [data],
+          };
+        }
       } else {
+        String errorMessage = 'Failed to get help requests';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          errorMessage;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
         return {
           'success': false,
-          'error': 'Failed to get help requests',
+          'error': errorMessage,
         };
       }
     } catch (e) {
@@ -488,14 +631,38 @@ class ApiService {
       final response = await authenticatedRequest('/donations/');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': data is List ? data : (data['results'] ?? data),
-        };
+        // Handle paginated response from DRF
+        if (data is Map && data.containsKey('results')) {
+          return {
+            'success': true,
+            'data': data['results'] as List,
+          };
+        } else if (data is List) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        } else {
+          return {
+            'success': true,
+            'data': [data],
+          };
+        }
       } else {
+        String errorMessage = 'Failed to get donations';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          errorMessage;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
         return {
           'success': false,
-          'error': 'Failed to get donations',
+          'error': errorMessage,
         };
       }
     } catch (e) {
@@ -555,14 +722,38 @@ class ApiService {
       final response = await authenticatedRequest('/disasters/');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': data is List ? data : (data['results'] ?? data),
-        };
+        // Handle paginated response from DRF
+        if (data is Map && data.containsKey('results')) {
+          return {
+            'success': true,
+            'data': data['results'] as List,
+          };
+        } else if (data is List) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        } else {
+          return {
+            'success': true,
+            'data': [data],
+          };
+        }
       } else {
+        String errorMessage = 'Failed to get disasters';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          errorMessage;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
         return {
           'success': false,
-          'error': 'Failed to get disasters',
+          'error': errorMessage,
         };
       }
     } catch (e) {
@@ -581,14 +772,38 @@ class ApiService {
       final response = await authenticatedRequest('/camps/');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': data is List ? data : (data['results'] ?? data),
-        };
+        // Handle paginated response from DRF
+        if (data is Map && data.containsKey('results')) {
+          return {
+            'success': true,
+            'data': data['results'] as List,
+          };
+        } else if (data is List) {
+          return {
+            'success': true,
+            'data': data,
+          };
+        } else {
+          return {
+            'success': true,
+            'data': [data],
+          };
+        }
       } else {
+        String errorMessage = 'Failed to get camps';
+        try {
+          if (response.body.isNotEmpty) {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? 
+                          errorData['detail'] ?? 
+                          errorMessage;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
         return {
           'success': false,
-          'error': 'Failed to get camps',
+          'error': errorMessage,
         };
       }
     } catch (e) {

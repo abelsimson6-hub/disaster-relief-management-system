@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:relief/services/api_service.dart';
 
-class DonorDashboard extends StatelessWidget {
+class DonorDashboard extends StatefulWidget {
   final VoidCallback onNavigateToMap;
   final VoidCallback onNavigateToProfile;
   final VoidCallback onNavigateToDonationDetails;
@@ -11,6 +12,84 @@ class DonorDashboard extends StatelessWidget {
     required this.onNavigateToProfile,
     required this.onNavigateToDonationDetails,
   });
+
+  @override
+  State<DonorDashboard> createState() => _DonorDashboardState();
+}
+
+class _DonorDashboardState extends State<DonorDashboard> {
+  List<Map<String, dynamic>> requests = [];
+  List<Map<String, dynamic>> myDonations = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final requestsResult = await ApiService.getHelpRequests();
+      final donationsResult = await ApiService.getDonations();
+
+      if (mounted) {
+        setState(() {
+          if (requestsResult['success'] == true) {
+            final helpRequests = requestsResult['data'] ?? [];
+            requests = helpRequests.map<Map<String, dynamic>>((r) {
+              return {
+                'id': r['id'],
+                'victim': r['victim_name'] ?? 'Unknown',
+                'need': r['description'] ?? '',
+                'location': r['location'] ?? 'Unknown',
+                'verified': r['status'] != 'pending',
+                'urgency': r['status'] == 'pending' ? 'high' : 'normal',
+              };
+            }).toList();
+          }
+          if (donationsResult['success'] == true) {
+            final donations = donationsResult['data'] ?? [];
+            myDonations = donations.map<Map<String, dynamic>>((d) {
+              return {
+                'item': d['donor_name'] ?? 'Donation',
+                'status': 'delivered',
+                'date': _formatDate(d['donation_date']),
+              };
+            }).toList();
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading data: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return 'Unknown';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      if (diff.inDays == 0) return 'Today';
+      if (diff.inDays == 1) return 'Yesterday';
+      return '${diff.inDays} days ago';
+    } catch (e) {
+      return dateStr;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,46 +124,31 @@ class DonorDashboard extends StatelessWidget {
       },
     ];
 
-    final requests = [
-      {
-        'id': 1,
-        'victim': 'Sarah Johnson',
-        'need': 'Food and Water for Family of 5',
-        'location': 'Downtown Shelter',
-        'verified': true,
-        'urgency': 'high',
-      },
-      {
-        'id': 2,
-        'victim': 'Michael Chen',
-        'need': 'Baby Formula and Diapers',
-        'location': 'West Relief Camp',
-        'verified': true,
-        'urgency': 'urgent',
-      },
-      {
-        'id': 3,
-        'victim': 'Community Center',
-        'need': 'Blankets and Warm Clothes',
-        'location': 'North District',
-        'verified': true,
-        'urgency': 'normal',
-      },
-    ];
-
-    final myDonations = [
-      {'item': 'Food Package', 'status': 'delivered', 'date': 'Yesterday'},
-      {'item': '₹100 Donation', 'status': 'in-transit', 'date': 'Today'},
-    ];
-
     return Scaffold(
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 96),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_errorMessage != null)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_errorMessage!, style: TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 96),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // Header
                 Container(
                   width: double.infinity,
@@ -145,7 +209,7 @@ class DonorDashboard extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 _ImpactTile(
-                                  title: '\₹2,450',
+                                  title: '₹2,450',
                                   subtitle: 'Total Donated',
                                 ),
                                 _ImpactTile(
@@ -191,7 +255,7 @@ class DonorDashboard extends StatelessWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         children: donationTypes.map((type) {
                           return _ScaleOnTap(
-                            onTap: onNavigateToDonationDetails,
+                            onTap: widget.onNavigateToDonationDetails,
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
@@ -260,7 +324,7 @@ class DonorDashboard extends StatelessWidget {
                               ? Colors.orange.shade700
                               : Colors.blue.shade700;
                           return _ScaleOnTap(
-                            onTap: onNavigateToDonationDetails,
+                            onTap: widget.onNavigateToDonationDetails,
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(12),
@@ -356,7 +420,7 @@ class DonorDashboard extends StatelessWidget {
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton(
-                                      onPressed: onNavigateToDonationDetails,
+                                      onPressed: widget.onNavigateToDonationDetails,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: primary,
                                         shape: RoundedRectangleBorder(
@@ -592,7 +656,7 @@ class DonorDashboard extends StatelessWidget {
                     icon: Icons.map,
                     label: 'Map',
                     active: false,
-                    onTap: onNavigateToMap,
+                    onTap: widget.onNavigateToMap,
                   ),
                   _NavButton(
                     icon: Icons.notifications,
@@ -604,7 +668,7 @@ class DonorDashboard extends StatelessWidget {
                     icon: Icons.person,
                     label: 'Profile',
                     active: false,
-                    onTap: onNavigateToProfile,
+                    onTap: widget.onNavigateToProfile,
                   ),
                 ],
               ),

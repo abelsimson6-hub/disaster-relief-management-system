@@ -1,7 +1,7 @@
 // lib/src/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:relief/src/app_state.dart';
+import 'package:relief/app_state.dart';
 import '../widgets/app_layout.dart';
 
 class LoginScreen extends StatefulWidget {

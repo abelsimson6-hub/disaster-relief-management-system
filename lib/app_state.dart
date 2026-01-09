@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:relief/src/services/api_service.dart';
+import 'package:relief/services/api_service.dart';
 
 enum Screen {
   splash,
@@ -113,25 +113,26 @@ class AppState extends ChangeNotifier {
       final result = await ApiService.login(username, password);
       
       if (result['success'] == true) {
+        // Tokens are already saved by ApiService.login
         // Get user profile to determine role and save user info
         final profileResult = await ApiService.getUserProfile();
         if (profileResult['success'] == true) {
           final profileData = profileResult['data'];
-          // Extract role and user info from profile data (structure varies by role type)
-          String roleStr = 'victim';
+          // Extract role and user info from profile data (consistent structure)
+          String roleStr = profileData['role'] ?? 'victim';
           int? userId;
           String usernameFromProfile = username;
           
-          if (profileData['user'] != null) {
+          if (profileData['user'] != null && profileData['user'] is Map) {
             // For role-specific profiles (volunteer, victim, camp_admin)
             userId = profileData['user']['id'];
             usernameFromProfile = profileData['user']['username'] ?? username;
-            roleStr = profileData['user']['role'] ?? 'victim';
-          } else {
+            roleStr = profileData['user']['role'] ?? roleStr;
+          } else if (profileData['id'] != null) {
             // For basic user profiles (donor, super_admin)
             userId = profileData['id'];
             usernameFromProfile = profileData['username'] ?? username;
-            roleStr = profileData['role'] ?? 'victim';
+            roleStr = profileData['role'] ?? roleStr;
           }
           
           // Save user info
@@ -142,7 +143,7 @@ class AppState extends ChangeNotifier {
           userRole = roleFromString(roleStr);
           navigateToDashboard(userRole);
         } else {
-          _setError('Login successful but could not fetch profile');
+          _setError(profileResult['error'] ?? 'Login successful but could not fetch profile');
         }
       } else {
         _setError(result['error'] ?? 'Login failed');
@@ -194,6 +195,4 @@ class AppState extends ChangeNotifier {
   void handleNavigateToMap() => _setScreen(Screen.map);
   void handleBackFromDetails() => _setScreen(previousScreen);
   void handleBackFromProfile() => _setScreen(previousScreen);
-
-  void startRegistration(victim) {}
 }
