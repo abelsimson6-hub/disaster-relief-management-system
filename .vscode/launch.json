@@ -2,24 +2,31 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "relief",
+      "name": "Flutter (Debug)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/src/main.dart"
+      "program": "lib/main.dart"
     },
     {
-      "name": "relief (profile mode)",
+      "name": "Flutter (Profile)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/src/main.dart",
-      "flutterMode": "profile"
+      "flutterMode": "profile",
+      "program": "lib/main.dart"
     },
     {
-      "name": "relief (release mode)",
+      "name": "Flutter (Release)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/src/main.dart",
-      "flutterMode": "release"
+      "flutterMode": "release",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Flutter (Web Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome"
     }
   ]
 }

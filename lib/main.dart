@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:relief/src/app_state.dart';
-import 'package:relief/src/screens/admin_dashboard.dart';
-import 'package:relief/src/screens/camp_admin_dashboard.dart';
-import 'package:relief/src/screens/donation_details.dart';
-import 'package:relief/src/screens/donor_dashboard.dart';
-import 'package:relief/src/screens/login_screen.dart';
-import 'package:relief/src/screens/map_screen.dart';
-import 'package:relief/src/screens/profile_screen.dart';
-import 'package:relief/src/screens/register_screen.dart';
-import 'package:relief/src/screens/request_details.dart';
-import 'package:relief/src/screens/role_selection_screen.dart';
-import 'package:relief/src/screens/splash_screen.dart';
-import 'package:relief/src/screens/victim_dashboard.dart';
-import 'package:relief/src/screens/volunteer_dashboard.dart';
-import 'package:relief/src/screens/welcome_screen.dart';
+import 'package:relief/app_state.dart';
+import 'package:relief/screens/admin_dashboard.dart';
+import 'package:relief/screens/camp_admin_dashboard.dart';
+import 'package:relief/screens/donation_details.dart';
+import 'package:relief/screens/donor_dashboard.dart';
+import 'package:relief/screens/login_screen.dart';
+import 'package:relief/screens/map_screen.dart';
+import 'package:relief/screens/profile_screen.dart';
+import 'package:relief/screens/register_screen.dart';
+import 'package:relief/screens/request_details.dart';
+import 'package:relief/screens/role_selection_screen.dart';
+import 'package:relief/screens/splash_screen.dart';
+import 'package:relief/screens/victim_dashboard.dart';
+import 'package:relief/screens/volunteer_dashboard.dart';
+import 'package:relief/screens/welcome_screen.dart';
 
 void main() {
   runApp(

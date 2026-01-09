@@ -1,16 +1,15 @@
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets, permissions
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Q, Count, Sum, Avg
 from django.utils import timezone
 from datetime import timedelta
-import json
 
 from users.models import User, Volunteer, Victim, CampAdmin, VolunteerSkill
 from relief.models import Resource, ResourceRequest, ResourceInventoryTransaction
@@ -43,76 +42,62 @@ User = get_user_model()
 # AUTHENTICATION ENDPOINTS
 # ========================================
 
-@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def test_api(request):
-    return JsonResponse({"message": "API working!"})
+    return Response({"message": "API working!"})
 
 
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def register_user(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            username = data.get('username')
-            email = data.get('email')
-            password = data.get('password')
-            role = data.get('role', 'victim')
+    username = request.data.get('username')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    role = request.data.get('role', 'victim')
 
-            if not username or not email or not password:
-                return JsonResponse({"error": "All fields required"}, status=400)
+    if not username or not email or not password:
+        return Response(
+            {"error": "All fields required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-            if User.objects.filter(username=username).exists():
-                return JsonResponse({"error": "Username already exists"}, status=400)
+    if User.objects.filter(username=username).exists():
+        return Response(
+            {"error": "Username already exists"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-            if User.objects.filter(email=email).exists():
-                return JsonResponse({"error": "Email already exists"}, status=400)
+    if User.objects.filter(email=email).exists():
+        return Response(
+            {"error": "Email already exists"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-            # Use create_user from CustomUserManager to properly handle password hashing
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,  # create_user will hash this automatically
-                role=role
-            )
+    try:
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            role=role
+        )
 
-            return JsonResponse({"message": "User registered successfully", "user_id": user.id}, status=201)
-
-        except Exception as e:
-            import traceback
-            # Return more detailed error for debugging
-            error_detail = str(e)
-            if settings.DEBUG:
-                error_detail += f"\n{traceback.format_exc()}"
-            return JsonResponse({"error": error_detail}, status=500)
-
-    return JsonResponse({"error": "Only POST allowed"}, status=405)
-
-
-@csrf_exempt
-def login_user(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            username = data.get('username')
-            password = data.get('password')
-
-            if not username or not password:
-                return JsonResponse({"error": "Username & password required"}, status=400)
-
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                return JsonResponse({
-                    "message": "Login successful",
-                    "user_id": user.id,
-                    "username": user.username,
-                    "role": user.role
-                }, status=200)
-            else:
-                return JsonResponse({"error": "Invalid username or password"}, status=401)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-
-    return JsonResponse({"error": "Only POST allowed"}, status=405)
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            "message": "User registered successfully",
+            "user_id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
@@ -130,47 +115,73 @@ def protected_route(request):
 def user_profile(request):
     """Return profile data based on user role"""
     user = request.user
+    serializer = UserSerializer(user)
+    base_data = serializer.data
 
     if user.role == "volunteer":
         try:
             volunteer = Volunteer.objects.get(user=user)
-            serializer = VolunteerSerializer(volunteer)
-            return Response(serializer.data)
+            volunteer_serializer = VolunteerSerializer(volunteer)
+            return Response({
+                "success": True,
+                "data": volunteer_serializer.data,
+                "user": base_data,
+                "role": user.role
+            })
         except Volunteer.DoesNotExist:
-            # Return basic user profile if volunteer profile doesn't exist
-            serializer = UserSerializer(user)
-            data = serializer.data
-            data['message'] = 'Volunteer profile not created yet. You can create it via /api/volunteers/ endpoint.'
-            return Response(data)
+            return Response({
+                "success": True,
+                "data": base_data,
+                "user": base_data,
+                "role": user.role,
+                "message": "Volunteer profile not created yet. You can create it via /api/volunteers/ endpoint."
+            })
 
     elif user.role == "victim":
         try:
             victim = Victim.objects.get(user=user)
-            serializer = VictimSerializer(victim)
-            return Response(serializer.data)
+            victim_serializer = VictimSerializer(victim)
+            return Response({
+                "success": True,
+                "data": victim_serializer.data,
+                "user": base_data,
+                "role": user.role
+            })
         except Victim.DoesNotExist:
-            # Return basic user profile if victim profile doesn't exist
-            serializer = UserSerializer(user)
-            data = serializer.data
-            data['message'] = 'Victim profile not created yet. You can create it via admin panel or API.'
-            return Response(data)
+            return Response({
+                "success": True,
+                "data": base_data,
+                "user": base_data,
+                "role": user.role,
+                "message": "Victim profile not created yet. You can create it via admin panel or API."
+            })
 
     elif user.role == "camp_admin":
         try:
             camp_admin = CampAdmin.objects.get(user=user)
-            serializer = CampAdminSerializer(camp_admin)
-            return Response(serializer.data)
+            camp_admin_serializer = CampAdminSerializer(camp_admin)
+            return Response({
+                "success": True,
+                "data": camp_admin_serializer.data,
+                "user": base_data,
+                "role": user.role
+            })
         except CampAdmin.DoesNotExist:
-            # Return basic user profile if camp admin profile doesn't exist
-            serializer = UserSerializer(user)
-            data = serializer.data
-            data['message'] = 'Camp admin profile not created yet. Contact administrator.'
-            return Response(data)
+            return Response({
+                "success": True,
+                "data": base_data,
+                "user": base_data,
+                "role": user.role,
+                "message": "Camp admin profile not created yet. Contact administrator."
+            })
 
     else:
-        # For other roles (super_admin, donor) or no specific role, return basic user profile
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+        return Response({
+            "success": True,
+            "data": base_data,
+            "user": base_data,
+            "role": user.role
+        })
 
 
 # ========================================
@@ -308,6 +319,12 @@ class HelpRequestViewSet(viewsets.ModelViewSet):
     queryset = HelpRequest.objects.all()
     serializer_class = HelpRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'victim':
+            return HelpRequest.objects.filter(victim=user)
+        return HelpRequest.objects.all()
 
     def perform_create(self, serializer):
         serializer.save(victim=self.request.user)

@@ -289,7 +289,7 @@ class Command(BaseCommand):
                 'name': 'Emergency Shelter Alpha',
                 'camp_type': 'shelter',
                 'disasters': disasters[0],
-                'location': 'City A Central Park',
+                'location': 'City A Central area',
                 'latitude': Decimal('34.0522'),
                 'longitude': Decimal('-118.2437'),
                 'capacity': 500,
