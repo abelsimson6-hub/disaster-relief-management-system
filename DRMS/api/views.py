@@ -55,6 +55,11 @@ def register_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
     role = request.data.get('role', 'victim')
+    
+    # Location fields
+    current_location = request.data.get('current_location', '')
+    latitude = request.data.get('latitude')
+    longitude = request.data.get('longitude')
 
     if not username or not email or not password:
         return Response(
@@ -79,8 +84,24 @@ def register_user(request):
             username=username,
             email=email,
             password=password,
-            role=role
+            role=role,
+            current_location=current_location,
+            latitude=latitude,
+            longitude=longitude,
+            location_updated_at=timezone.now() if latitude and longitude else None
         )
+
+        # If victim, automatically find nearest camp and create camp admin assignment suggestion
+        nearest_camp_info = None
+        if role == 'victim' and latitude and longitude:
+            from operations.utils import find_nearest_camp
+            nearest_camp = find_nearest_camp(float(latitude), float(longitude), radius_km=100)
+            if nearest_camp:
+                nearest_camp_info = {
+                    'camp_id': nearest_camp.id,
+                    'camp_name': nearest_camp.name,
+                    'distance_km': None  # Can calculate if needed
+                }
 
         refresh = RefreshToken.for_user(user)
         
@@ -89,15 +110,44 @@ def register_user(request):
             "user_id": user.id,
             "username": user.username,
             "role": user.role,
+            "location_saved": bool(latitude and longitude),
+            "nearest_camp": nearest_camp_info,
             "access": str(refresh.access_token),
             "refresh": str(refresh)
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
+        import traceback
+        error_detail = str(e)
+        if settings.DEBUG:
+            error_detail += f"\n{traceback.format_exc()}"
         return Response(
-            {"error": str(e)},
+            {"error": error_detail},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_user(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response({"error": "Username & password required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = authenticate(username=username, password=password)
+    if user is not None:
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "message": "Login successful",
+            "user_id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({"error": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['GET'])

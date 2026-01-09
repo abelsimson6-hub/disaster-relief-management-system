@@ -47,6 +47,19 @@ class User(AbstractUser):
         validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$', message='Enter a valid phone number')]
     )
     address = models.TextField(blank=True)
+    # Location fields for location-based features
+    current_location = models.CharField(max_length=255, blank=True, help_text="Current location address")
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
+        help_text="Latitude coordinate"
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
+        help_text="Longitude coordinate"
+    )
+    location_updated_at = models.DateTimeField(null=True, blank=True, help_text="When location was last updated")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     objects = CustomUserManager()
@@ -57,6 +70,7 @@ class User(AbstractUser):
         indexes = [
             models.Index(fields=['role']),
             models.Index(fields=['username']),
+            models.Index(fields=['latitude', 'longitude']),  # For location-based queries
         ]
         constraints = [
             models.CheckConstraint(

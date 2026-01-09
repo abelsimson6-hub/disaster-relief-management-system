@@ -1,7 +1,12 @@
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Donation(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    ]
     DONOR_TYPE_CHOICES = [
         ('individual', 'Individual'),
         ('organization', 'Organization'),
@@ -11,6 +16,8 @@ class Donation(models.Model):
     donor_type = models.CharField(max_length=20, choices=DONOR_TYPE_CHOICES)
     contact_email = models.EmailField(blank=True)
     contact_phone = models.CharField(max_length=15, blank=True)
+    camp = models.ForeignKey('shelters.Camp', on_delete=models.CASCADE, null=True, blank=True, related_name='donations')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     donation_date = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
     
@@ -18,11 +25,17 @@ class Donation(models.Model):
         db_table = 'donations'
         indexes = [
             models.Index(fields=['donor_type', 'donation_date']),
+            models.Index(fields=['camp', 'status']),
+            models.Index(fields=['created_by', 'donation_date']),
         ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(donor_type__in=['individual', 'organization']),
                 name='valid_donor_type'
+            ),
+            models.CheckConstraint(
+                check=models.Q(status__in=['pending', 'accepted', 'rejected']),
+                name='valid_donation_status'
             )
         ]
 
@@ -112,6 +125,23 @@ class HelpRequest(models.Model):
     disasters = models.ForeignKey('disasters.Disasters', on_delete=models.CASCADE)
     description = models.TextField()
     location = models.CharField(max_length=255)
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)]
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)]
+    )
+    assigned_volunteer = models.ForeignKey(
+        'users.User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='assigned_help_requests',
+        limit_choices_to={'role': 'volunteer'},
+        help_text="Volunteer who is helping with this request"
+    )
     requested_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
@@ -119,6 +149,8 @@ class HelpRequest(models.Model):
         db_table = 'help_requests'
         indexes = [
             models.Index(fields=['status', 'requested_at']),
+            models.Index(fields=['latitude', 'longitude']),  # For location-based queries
+            models.Index(fields=['assigned_volunteer', 'status']),
         ]
         constraints = [
             models.CheckConstraint(

@@ -74,7 +74,7 @@ class ResourceInventoryTransaction(models.Model):
     quantity_delta = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(-9999999999.99)])
     reason = models.TextField(blank=True)
     related_request = models.ForeignKey('relief.ResourceRequest', on_delete=models.SET_NULL, null=True, blank=True)
-    related_donation_item = models.ForeignKey('operations.DonationItem', on_delete=models.SET_NULL, null=True, blank=True)
+    related_donation_item = models.ForeignKey('operations.DonationItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='inventory_transactions')
     created_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -111,7 +111,8 @@ class ResourceRequest(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     requested_by = models.ForeignKey('users.User', on_delete=models.CASCADE,  # String reference
-                                     limit_choices_to={'role__in': ['camp_admin', 'super_admin']})
+                                     limit_choices_to={'role__in': ['camp_admin', 'super_admin', 'victim']},
+                                     help_text="Can be camp admin, super admin, or victim")
     request_date = models.DateTimeField(auto_now_add=True)
     needed_by = models.DateTimeField()
     reason = models.TextField()

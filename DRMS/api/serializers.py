@@ -23,8 +23,12 @@ from shelters.models import Camp
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "role", "phone", "address", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = [
+            "id", "username", "email", "role", "phone", "address",
+            "current_location", "latitude", "longitude", "location_updated_at",
+            "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "location_updated_at"]
 
 
 class VolunteerSkillSerializer(serializers.ModelSerializer):
@@ -220,12 +224,13 @@ class DonationItemSerializer(serializers.ModelSerializer):
 class DonationSerializer(serializers.ModelSerializer):
     items = DonationItemSerializer(many=True, read_only=True)
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    camp_name = serializers.CharField(source='camp.name', read_only=True)
 
     class Meta:
         model = Donation
         fields = [
             "id", "donor_name", "donor_type", "contact_email", "contact_phone",
-            "donation_date", "created_by", "created_by_name", "items"
+            "camp", "camp_name", "status", "donation_date", "created_by", "created_by_name", "items"
         ]
         read_only_fields = ["id", "donation_date"]
 
@@ -249,13 +254,16 @@ class DonationAcknowledgmentSerializer(serializers.ModelSerializer):
 class HelpRequestSerializer(serializers.ModelSerializer):
     victim_name = serializers.CharField(source='victim.username', read_only=True)
     disaster_name = serializers.CharField(source='disasters.name', read_only=True)
+    assigned_volunteer_name = serializers.CharField(source='assigned_volunteer.username', read_only=True)
     status_history = serializers.SerializerMethodField()
 
     class Meta:
         model = HelpRequest
         fields = [
             "id", "victim", "victim_name", "disasters", "disaster_name",
-            "description", "location", "requested_at", "status", "status_history"
+            "description", "location", "latitude", "longitude",
+            "assigned_volunteer", "assigned_volunteer_name",
+            "requested_at", "status", "status_history"
         ]
         read_only_fields = ["id", "requested_at"]
 
