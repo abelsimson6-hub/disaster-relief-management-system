@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart' show TargetPlatform;
 import 'package:http/http.dart' as http;
+import 'package:relief/models/user_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -838,5 +839,29 @@ class ApiService {
       };
     }
   }
+ 
+ 
+  // ==================== Profile (Typed API) ====================
+
+  static Future<UserProfile> fetchProfile() async {
+    final response = await authenticatedRequest('/user/profile/');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load profile');
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    final data = decoded is Map && decoded.containsKey('data')
+        ? decoded['data']
+        : decoded;
+
+    return UserProfile.fromJson(data);
+  }
 }
+
+
+
+
+ 
 
