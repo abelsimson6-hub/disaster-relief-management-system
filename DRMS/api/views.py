@@ -553,6 +553,49 @@ def admin_dashboard(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def camp_admin_dashboard(request):
+    """Dashboard specifically for camp administrators"""
+    if request.user.role != 'camp_admin':
+        return Response({"error": "Camp admin role required"}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        camp_admin = CampAdmin.objects.get(user=request.user)
+        camp = camp_admin.camp
+    except CampAdmin.DoesNotExist:
+        return Response({"error": "No camp assigned to this admin"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Camp-specific stats
+    stats = {
+        "camp": {
+            "id": camp.id,
+            "name": camp.name,
+            "type": camp.camp_type,
+            "location": camp.location,
+            "capacity": camp.capacity,
+            "population": camp.population_capacity,
+            "status": camp.status,
+        },
+        "residents": {
+            "total": Victim.objects.filter(user__address__icontains=camp.location).count(), # Simplistic matching
+            "high_priority": Victim.objects.filter(
+                user__address__icontains=camp.location,
+                priority_level__in=['high', 'critical']
+            ).count(),
+        },
+        "resources": {
+            "total": Resource.objects.filter(is_active=True).count(), # Global for now, could filter by camp if model supports it
+            "requests": ResourceRequest.objects.filter(status='pending').count(),
+        },
+        "donations": {
+            "received": Donation.objects.filter(donor_type='individual').count(), # Mock filter
+        }
+    }
+
+    return Response(stats)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def resource_analytics(request):
     """Analytics for resource management"""
     if request.user.role not in ['super_admin', 'camp_admin']:

@@ -839,6 +839,75 @@ class ApiService {
       };
     }
   }
+
+  // Get users (for admins)
+  static Future<Map<String, dynamic>> getUsers() async {
+    try {
+      final response = await authenticatedRequest('/users/');
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Failed to get users',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  // Get volunteers (for admins)
+  static Future<Map<String, dynamic>> getVolunteersList() async {
+    try {
+      final response = await authenticatedRequest('/volunteers/');
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Failed to get volunteers',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  // Get camp admin dashboard data
+  static Future<Map<String, dynamic>> getCampAdminDashboard() async {
+    try {
+      final response = await authenticatedRequest('/camp-admin/dashboard/');
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Failed to get camp dashboard',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
  
  
   // ==================== Profile (Typed API) ====================

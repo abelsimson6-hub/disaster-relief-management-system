@@ -33,10 +33,34 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
     try {
       final dashboardResult = await ApiService.getAdminDashboard();
+      final usersResult = await ApiService.getUsers();
+      final volunteersResult = await ApiService.getVolunteersList();
 
       if (mounted) {
         if (dashboardResult['success'] == true) {
           final data = dashboardResult['data'];
+          
+          List<Map<String, String>> fetchedUsers = [];
+          if (usersResult['success'] == true) {
+            final userData = usersResult['data']['users'] as List;
+            fetchedUsers = userData.map((u) => {
+              'name': u['username'].toString(),
+              'email': u['email'].toString(),
+              'status': u['is_active'] == true ? 'active' : 'inactive',
+            }).toList();
+          }
+
+          List<Map<String, dynamic>> fetchedVolunteers = [];
+          if (volunteersResult['success'] == true) {
+            final volunteerData = volunteersResult['data']['volunteers'] as List;
+            fetchedVolunteers = volunteerData.map((v) => {
+              'name': v['username'].toString(),
+              'tasks': '0', // Could be expanded
+              'rating': '5.0',
+              'verified': true,
+            }).toList();
+          }
+
           setState(() {
             stats = [
               {
@@ -64,6 +88,8 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                 'colors': [Color(0xFF8B5CF6), Color(0xFF7C3AED)]
               },
             ];
+            users = fetchedUsers;
+            volunteers = fetchedVolunteers;
             _isLoading = false;
           });
         } else {

@@ -30,6 +30,7 @@ from .views import (
 
     # Admin endpoints
     admin_dashboard,
+    camp_admin_dashboard,
     resource_analytics,
     donation_matching,
     volunteer_coordination,
@@ -76,6 +77,7 @@ urlpatterns = [
 
     # Admin dashboard
     path('admin/dashboard/', admin_dashboard, name='admin_dashboard'),
+    path('camp-admin/dashboard/', camp_admin_dashboard, name='camp_admin_dashboard'),
     path('admin/resource-analytics/', resource_analytics, name='resource_analytics'),
     path('admin/donation-matching/', donation_matching, name='donation_matching'),
     path('admin/volunteer-coordination/', volunteer_coordination, name='volunteer_coordination'),

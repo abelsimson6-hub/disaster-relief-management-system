@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:relief/services/api_service.dart';
 
 class CampAdminDashboard extends StatefulWidget {
   final VoidCallback onNavigateToProfile;
@@ -12,11 +12,46 @@ class CampAdminDashboard extends StatefulWidget {
 class _CampAdminDashboardState extends State<CampAdminDashboard>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, dynamic>? _dashboardData;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await ApiService.getCampAdminDashboard();
+      if (mounted) {
+        if (result['success'] == true) {
+          setState(() {
+            _dashboardData = result['data'];
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = result['error'] ?? 'Failed to load camp data';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -27,6 +62,29 @@ class _CampAdminDashboardState extends State<CampAdminDashboard>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final campInfo = _dashboardData?['camp'] ?? {};
+    final residents = _dashboardData?['residents'] ?? {};
+    final resources = _dashboardData?['resources'] ?? {};
+
     final greenStart = const Color(0xFF059669);
     final greenEnd = const Color(0xFF047857);
 
@@ -43,21 +101,21 @@ class _CampAdminDashboardState extends State<CampAdminDashboard>
                 bottom: Radius.circular(28),
               ),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Camp Admin Panel',
-                  style: TextStyle(
+                  campInfo['name'] ?? 'Camp Admin Panel',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Manage camp operations',
-                  style: TextStyle(color: Colors.white70),
+                  '${campInfo['type']?.toString().toUpperCase() ?? "MANAGEMENT"} | ${campInfo['status'] ?? "Active"}',
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
             ),
@@ -69,9 +127,9 @@ class _CampAdminDashboardState extends State<CampAdminDashboard>
             labelColor: greenStart,
             unselectedLabelColor: Colors.grey,
             tabs: const [
-              Tab(text: 'Residents'),
+              Tab(text: 'Stats'),
               Tab(text: 'Supplies'),
-              Tab(text: 'Emergencies'),
+              Tab(text: 'Residents'),
             ],
           ),
 
@@ -80,9 +138,9 @@ class _CampAdminDashboardState extends State<CampAdminDashboard>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _simpleCard('Camp Residents'),
-                _simpleCard('Camp Supplies'),
-                _simpleCard('Emergency Requests'),
+                _statsView(residents, resources),
+                _simpleCard('Supplies: ${resources['total'] ?? 0} active items'),
+                _simpleCard('Residents: ${residents['total'] ?? 0} total'),
               ],
             ),
           ),
@@ -120,6 +178,31 @@ class _CampAdminDashboardState extends State<CampAdminDashboard>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ================= STATS VIEW =================
+  Widget _statsView(Map residents, Map resources) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _statCard('Total Residents', '${residents['total']}', Icons.person, Colors.blue),
+        _statCard('High Priority', '${residents['high_priority']}', Icons.warning, Colors.orange),
+        _statCard('Active Supplies', '${resources['total']}', Icons.category, Colors.green),
+        _statCard('Pending Requests', '${resources['requests']}', Icons.assignment, Colors.red),
+      ],
+    );
+  }
+
+  Widget _statCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(title, style: const TextStyle(fontSize: 14)),
+        trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
       ),
     );
   }
