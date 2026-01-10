@@ -1,0 +1,22 @@
+###
+# api call for register user
+POST  http://127.0.0.1:8000/api/register/
+Content-Type: application/json
+
+{
+    "username": "lumonar",
+    "password": "securepassword123",
+    "email": "lumonar@example.com",
+    "phone":" +1234567890",
+    "role":"victim"
+}
+
+# api call for login user
+###
+POST  http://127.0.0.1:8000/api/token/
+Content-Type: application/json
+
+{
+    "email": "lumonar@example.com",
+    "password": "securepassword123"
+}

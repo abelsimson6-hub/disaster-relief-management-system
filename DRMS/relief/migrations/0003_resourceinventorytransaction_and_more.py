@@ -19,8 +19,29 @@ class Migration(migrations.Migration):
             name='ResourceInventoryTransaction',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('transaction_type', models.CharField(choices=[('add', 'Addition'), ('remove', 'Removal'), ('adjust', 'Manual Adjustment'), ('fulfillment', 'Request Fulfillment'), ('donation', 'Donation Intake')], max_length=20)),
-                ('quantity_delta', models.DecimalField(decimal_places=2, max_digits=12, validators=[django.core.validators.MinValueValidator(-9999999999.99)])),
+                (
+                    'transaction_type',
+                    models.CharField(
+                        max_length=20,
+                        choices=[
+                            ('add', 'Addition'),
+                            ('remove', 'Removal'),
+                            ('adjust', 'Manual Adjustment'),
+                            ('fulfillment', 'Request Fulfillment'),
+                            ('donation', 'Donation Intake'),
+                        ],
+                    ),
+                ),
+                (
+                    'quantity_delta',
+                    models.DecimalField(
+                        max_digits=12,
+                        decimal_places=2,
+                        validators=[
+                            django.core.validators.MinValueValidator(-9999999999.99)
+                        ],
+                    ),
+                ),
                 ('reason', models.TextField(blank=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
             ],
@@ -32,8 +53,32 @@ class Migration(migrations.Migration):
             name='ResourceRequestStatusHistory',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('previous_status', models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('fulfilled', 'Fulfilled'), ('cancelled', 'Cancelled')], max_length=20)),
-                ('new_status', models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('fulfilled', 'Fulfilled'), ('cancelled', 'Cancelled')], max_length=20)),
+                (
+                    'previous_status',
+                    models.CharField(
+                        max_length=20,
+                        choices=[
+                            ('pending', 'Pending'),
+                            ('approved', 'Approved'),
+                            ('rejected', 'Rejected'),
+                            ('fulfilled', 'Fulfilled'),
+                            ('cancelled', 'Cancelled'),
+                        ],
+                    ),
+                ),
+                (
+                    'new_status',
+                    models.CharField(
+                        max_length=20,
+                        choices=[
+                            ('pending', 'Pending'),
+                            ('approved', 'Approved'),
+                            ('rejected', 'Rejected'),
+                            ('fulfilled', 'Fulfilled'),
+                            ('cancelled', 'Cancelled'),
+                        ],
+                    ),
+                ),
                 ('note', models.TextField(blank=True)),
                 ('changed_at', models.DateTimeField(auto_now_add=True)),
             ],
@@ -44,66 +89,129 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='resource',
             name='available_quantity',
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=12, validators=[django.core.validators.MinValueValidator(0)]),
+            field=models.DecimalField(
+                max_digits=12,
+                decimal_places=2,
+                default=0,
+                validators=[django.core.validators.MinValueValidator(0)],
+            ),
         ),
         migrations.AddField(
             model_name='resource',
             name='total_quantity',
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=12, validators=[django.core.validators.MinValueValidator(0)]),
+            field=models.DecimalField(
+                max_digits=12,
+                decimal_places=2,
+                default=0,
+                validators=[django.core.validators.MinValueValidator(0)],
+            ),
         ),
         migrations.AlterField(
             model_name='resourcerequest',
             name='requested_by',
-            field=models.ForeignKey(help_text='Can be camp admin, super admin, or victim', limit_choices_to={'role__in': ['camp_admin', 'super_admin', 'victim']}, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                to=settings.AUTH_USER_MODEL,
+                on_delete=django.db.models.deletion.CASCADE,
+                limit_choices_to={'role__in': ['camp_admin', 'super_admin', 'victim']},
+                help_text='Can be camp admin, super admin, or victim',
+            ),
         ),
         migrations.AddConstraint(
             model_name='resource',
-            constraint=models.CheckConstraint(condition=models.Q(('available_quantity__gte', 0), ('available_quantity__lte', models.F('total_quantity'))), name='available_not_exceed_total'),
+            constraint=models.CheckConstraint(
+                check=models.Q(
+                    available_quantity__gte=0
+                ) & models.Q(
+                    available_quantity__lte=models.F('total_quantity')
+                ),
+                name='available_not_exceed_total',
+            ),
         ),
         migrations.AddField(
             model_name='resourceinventorytransaction',
             name='created_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                to=settings.AUTH_USER_MODEL,
+                null=True,
+                blank=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+            ),
         ),
         migrations.AddField(
             model_name='resourceinventorytransaction',
             name='related_donation_item',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='inventory_transactions', to='operations.donationitem'),
+            field=models.ForeignKey(
+                to='operations.donationitem',
+                null=True,
+                blank=True,
+                related_name='inventory_transactions',
+                on_delete=django.db.models.deletion.SET_NULL,
+            ),
         ),
         migrations.AddField(
             model_name='resourceinventorytransaction',
             name='related_request',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='relief.resourcerequest'),
+            field=models.ForeignKey(
+                to='relief.resourcerequest',
+                null=True,
+                blank=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+            ),
         ),
         migrations.AddField(
             model_name='resourceinventorytransaction',
             name='resource',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='inventory_transactions', to='relief.resource'),
+            field=models.ForeignKey(
+                to='relief.resource',
+                related_name='inventory_transactions',
+                on_delete=django.db.models.deletion.CASCADE,
+            ),
         ),
         migrations.AddField(
             model_name='resourcerequeststatushistory',
             name='changed_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                to=settings.AUTH_USER_MODEL,
+                null=True,
+                blank=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+            ),
         ),
         migrations.AddField(
             model_name='resourcerequeststatushistory',
             name='request',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='status_history', to='relief.resourcerequest'),
+            field=models.ForeignKey(
+                to='relief.resourcerequest',
+                related_name='status_history',
+                on_delete=django.db.models.deletion.CASCADE,
+            ),
         ),
         migrations.AddIndex(
             model_name='resourceinventorytransaction',
-            index=models.Index(fields=['resource', 'transaction_type'], name='resource_in_resourc_f05a35_idx'),
+            index=models.Index(
+                fields=['resource', 'transaction_type'],
+                name='resource_in_resourc_f05a35_idx',
+            ),
         ),
         migrations.AddIndex(
             model_name='resourceinventorytransaction',
-            index=models.Index(fields=['created_at'], name='resource_in_created_94ebb5_idx'),
+            index=models.Index(
+                fields=['created_at'],
+                name='resource_in_created_94ebb5_idx',
+            ),
         ),
         migrations.AddIndex(
             model_name='resourcerequeststatushistory',
-            index=models.Index(fields=['request'], name='resource_re_request_488d56_idx'),
+            index=models.Index(
+                fields=['request'],
+                name='resource_re_request_488d56_idx',
+            ),
         ),
         migrations.AddIndex(
             model_name='resourcerequeststatushistory',
-            index=models.Index(fields=['new_status', 'changed_at'], name='resource_re_new_sta_374a30_idx'),
+            index=models.Index(
+                fields=['new_status', 'changed_at'],
+                name='resource_re_new_sta_374a30_idx',
+            ),
         ),
     ]

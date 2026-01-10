@@ -1,5 +1,8 @@
 // lib/src/screens/donation_details_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../app_state.dart';
+import '../services/api_service.dart';
 
 class DonationDetailsScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -98,7 +101,7 @@ class _DonationDetailsScreenState extends State<DonationDetailsScreen> {
     };
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,12 +110,109 @@ class _DonationDetailsScreenState extends State<DonationDetailsScreen> {
       return;
     }
 
-    // mock submission: gather form data (struct created but not persisted in this mock)
+    // Get user info from AppState
+    final appState = Provider.of<AppState>(context, listen: false);
+    final donorName = appState.username ?? 'Anonymous';
+    final donorType = 'individual'; // Could be made configurable
+    final contactEmail = appState.email;
 
-    // Here you would normally call Provider/Firestore service to submit.
-    // For now, show success and call optional callback.
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Donation submitted successfully (mock)')));
-    widget.onSubmitted?.call();
+    // Build items_data array
+    List<Map<String, dynamic>> itemsData = [];
+    
+    if (_donationType == 'Money') {
+      // For money donations, create a special item
+      final amount = double.tryParse(_moneyAmountCtrl.text) ?? 0;
+      if (amount > 0) {
+        itemsData.add({
+          'name': 'Money Donation',
+          'category': 'other',
+          'quantity': amount.toString(),
+        });
+      }
+    } else {
+      // For other donation types, process items
+      for (var item in _items) {
+        final name = item.nameCtrl.text.trim();
+        final qty = item.qtyCtrl.text.trim();
+        
+        if (name.isNotEmpty && qty.isNotEmpty) {
+          // Map donation type to resource category
+          String category = 'other';
+          switch (_donationType.toLowerCase()) {
+            case 'food':
+              category = 'food';
+              break;
+            case 'medicine':
+              category = 'medical';
+              break;
+            case 'clothes':
+              category = 'clothing';
+              break;
+            default:
+              category = 'other';
+          }
+          
+          itemsData.add({
+            'name': name,
+            'category': category,
+            'quantity': qty,
+          });
+        }
+      }
+    }
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Call API to create donation
+      final result = await ApiService.createDonation(
+        donorName: donorName,
+        donorType: donorType,
+        contactEmail: contactEmail,
+        itemsData: itemsData.isNotEmpty ? itemsData : null,
+      );
+
+      // Close loading indicator
+      if (mounted) Navigator.of(context).pop();
+
+      if (result['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Donation submitted successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          widget.onSubmitted?.call();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to submit donation: ${result['error'] ?? 'Unknown error'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading indicator
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting donation: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

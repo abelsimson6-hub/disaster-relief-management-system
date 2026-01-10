@@ -19,7 +19,10 @@ import 'package:relief/screens/welcome_screen.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(create: (_) => AppState(), child: const MyApp()),
+    ChangeNotifierProvider<AppState>(
+      create: (_) => AppState(),
+      child: const MyApp(),
+    ),
   );
 }
 
@@ -28,7 +31,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
+    final appState = context.watch<AppState>();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -38,98 +41,100 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey.shade50,
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF007BFF)),
       ),
-
       home: SafeArea(
-        child: Container(
-          alignment: Alignment.topCenter,
+        child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Builder(
-              builder: (context) {
-                switch (appState.currentScreen) {
-                  case Screen.splash:
-                    return SplashScreen(
-                      onComplete: appState.handleSplashComplete,
-                    );
-
-                  case Screen.welcome:
-                    return const WelcomeScreen();
-
-                  case Screen.roleSelection:
-                    return RoleSelectionScreen(
-                      onSelectRole: appState.handleRoleSelection,
-                    );
-
-                  case Screen.login:
-                    return LoginScreen(
-                      selectedRole: appState.userRole,
-                      onNavigateToRegister: appState.handleNavigateToRegister,
-                    );
-
-                  case Screen.register:
-                    return RegisterScreen(
-                      onNavigateToLogin: appState.handleNavigateToLogin,
-                    );
-
-                  case Screen.victimDashboard:
-                    return VictimDashboard(
-                      onNavigateToMap: appState.handleNavigateToMap,
-                      onNavigateToProfile: appState.handleNavigateToProfile,
-                      onNavigateToRequestDetails:
-                          appState.handleNavigateToRequestDetails,
-                    );
-
-                  case Screen.donorDashboard:
-                    return DonorDashboard(
-                      onNavigateToMap: appState.handleNavigateToMap,
-                      onNavigateToProfile: appState.handleNavigateToProfile,
-                      onNavigateToDonationDetails:
-                          appState.handleNavigateToDonationDetails,
-                    );
-
-                  case Screen.volunteerDashboard:
-                    return VolunteerDashboard(
-                      onNavigateToMap: appState.handleNavigateToMap,
-                      onNavigateToProfile: appState.handleNavigateToProfile,
-                      onNavigateToRequestDetails:
-                          appState.handleNavigateToRequestDetails,
-                    );
-
-                  case Screen.adminDashboard:
-                    return AdminDashboard(
-                      onNavigateToProfile: appState.handleNavigateToProfile,
-                    );
-
-                  case Screen.campAdminDashboard:
-                    return CampAdminDashboard(
-                      onNavigateToProfile: appState.handleNavigateToProfile,
-                    );
-
-                  case Screen.requestDetails:
-                    return RequestDetails(
-                      onBack: appState.handleBackFromDetails,
-                    );
-
-                  case Screen.donationDetails:
-                    return DonationDetailsScreen(
-                      onBack: appState.handleBackFromDetails,
-                    );
-
-                  case Screen.map:
-                    return MapScreen(onBack: appState.handleBackFromDetails);
-
-                  case Screen.profile:
-                    return ProfileScreen(
-                      role: appState.userRole,
-                      onBack: appState.handleBackFromProfile,
-                      onLogout: appState.handleLogout,
-                    );
-                }
-              },
-            ),
+            child: _buildScreen(appState),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildScreen(AppState appState) {
+    switch (appState.currentScreen) {
+      case Screen.splash:
+        return SplashScreen(onComplete: appState.handleSplashComplete);
+
+      case Screen.welcome:
+        return const WelcomeScreen();
+
+      case Screen.roleSelection:
+        return RoleSelectionScreen(onSelectRole: appState.handleRoleSelection);
+
+      case Screen.login:
+        // userRole may be null if navigating directly, but should be set after role selection
+        // Use fallback for UI display only (not for authentication logic)
+        return LoginScreen(
+          selectedRole: appState.userRole ?? RoleType.victim,
+          onNavigateToRegister: appState.handleNavigateToRegister,
+        );
+
+      case Screen.register:
+        return RegisterScreen(
+          onNavigateToLogin: appState.handleNavigateToLogin,
+        );
+
+      case Screen.victimDashboard:
+        return VictimDashboard(
+          onNavigateToMap: appState.handleNavigateToMap,
+          onNavigateToProfile: appState.handleNavigateToProfile,
+          onNavigateToRequestDetails: appState.handleNavigateToRequestDetails,
+        );
+
+      case Screen.donorDashboard:
+        return DonorDashboard(
+          onNavigateToMap: appState.handleNavigateToMap,
+          onNavigateToProfile: appState.handleNavigateToProfile,
+          onNavigateToDonationDetails: appState.handleNavigateToDonationDetails,
+        );
+
+      case Screen.volunteerDashboard:
+        return VolunteerDashboard(
+          onNavigateToMap: appState.handleNavigateToMap,
+          onNavigateToProfile: appState.handleNavigateToProfile,
+          onNavigateToRequestDetails: appState.handleNavigateToRequestDetails,
+        );
+
+      case Screen.adminDashboard:
+        return AdminDashboard(
+          onNavigateToProfile: appState.handleNavigateToProfile,
+        );
+
+      case Screen.campAdminDashboard:
+        return CampAdminDashboard(
+          onNavigateToProfile: appState.handleNavigateToProfile,
+        );
+
+      case Screen.requestDetails:
+        return RequestDetails(onBack: appState.handleBackFromDetails);
+
+      case Screen.donationDetails:
+        return DonationDetailsScreen(
+          onBack: appState.handleBackFromDetails,
+          onSubmitted: () {
+            // Refresh donor dashboard after donation submission
+            appState.handleBackFromDetails();
+          },
+        );
+
+      case Screen.map:
+        return MapScreen(onBack: appState.handleBackFromDetails);
+
+      case Screen.profile:
+        // Profile screen should only be accessible when logged in (userRole should never be null)
+        // If null, redirect to role selection as a safety measure
+        if (appState.userRole == null) {
+          return RoleSelectionScreen(
+            onSelectRole: appState.handleRoleSelection,
+          );
+        }
+        return ProfileScreen(
+          role: appState.userRole!,
+          onBack: appState.handleBackFromProfile,
+          onLogout: appState.handleLogout,
+        );
+    }
   }
 }

@@ -21,7 +21,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameCtrl;
+  late final TextEditingController _emailCtrl; // Changed from username to email
   late final TextEditingController _passwordCtrl;
   bool _isLoading = false;
   String? _errorMessage;
@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _usernameCtrl = TextEditingController();
+    _emailCtrl = TextEditingController();
     _passwordCtrl = TextEditingController();
 
     _animController = AnimationController(
@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _animController.dispose();
     super.dispose();
@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen>
       });
 
       final appState = Provider.of<AppState>(context, listen: false);
-      await appState.handleLogin(_usernameCtrl.text.trim(), _passwordCtrl.text);
+      await appState.handleLogin(_emailCtrl.text.trim(), _passwordCtrl.text);
 
       if (mounted) {
         setState(() {
@@ -170,12 +170,13 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
 
-                            // Username field
+                            // Email field (login uses email, not username)
                             TextFormField(
-                              controller: _usernameCtrl,
+                              controller: _emailCtrl,
+                              keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.person),
-                                labelText: 'Username',
+                                prefixIcon: const Icon(Icons.email),
+                                labelText: 'Email',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -183,7 +184,10 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) {
-                                  return 'Enter username';
+                                  return 'Enter email';
+                                }
+                                if (!v.contains('@')) {
+                                  return 'Enter valid email';
                                 }
                                 return null;
                               },

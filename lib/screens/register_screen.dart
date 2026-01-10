@@ -19,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController(); // ADDED: Phone number field
   final _passwordCtrl = TextEditingController();
 
   String _role = 'victim';
@@ -54,6 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _entranceController.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     _redirectTimer?.cancel();
     super.dispose();
@@ -70,8 +72,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     try {
       final result = await ApiService.register(
-        username: _nameCtrl.text.trim(),
+        name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
+        phoneNumber: _phoneCtrl.text.trim(),
         password: _passwordCtrl.text,
         role: _role,
       );
@@ -89,7 +92,9 @@ class _RegisterScreenState extends State<RegisterScreen>
               // Get AppState and navigate to dashboard
               final appState = Provider.of<AppState>(context, listen: false);
               appState.userRole = AppState.roleFromString(roleStr);
-              appState.navigateToDashboard(appState.userRole);
+              if (appState.userRole != null) {
+                appState.navigateToDashboard(appState.userRole!);
+              }
               return;
             }
           }
@@ -235,12 +240,19 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red.shade700,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _errorMessage!,
-                                  style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ],
@@ -282,6 +294,32 @@ class _RegisterScreenState extends State<RegisterScreen>
                           }
                           if (!v.contains('@')) {
                             return 'Enter valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Phone number (REQUIRED)
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.phone),
+                          labelText: 'Phone Number',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          isDense: true,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter phone number';
+                          }
+                          // Basic phone validation
+                          final phoneRegex = RegExp(r'^\+?1?\d{9,15}$');
+                          if (!phoneRegex.hasMatch(v.trim())) {
+                            return 'Enter valid phone number';
                           }
                           return null;
                         },
@@ -343,7 +381,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _isLoading || _success ? null : _handleRegister,
+                          onPressed: _isLoading || _success
+                              ? null
+                              : _handleRegister,
                           style:
                               ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
@@ -364,7 +404,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Text('Sign Up'),
                         ),

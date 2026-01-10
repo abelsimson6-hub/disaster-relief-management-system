@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/app_layout.dart';
 import '../services/api_service.dart';
-import '../models/user_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback onBack;
@@ -24,7 +23,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
 
-  UserProfile? _profile;
   bool _loading = true;
   String? _error;
 
@@ -44,7 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _emailCtrl.text = profile.email;
 
       setState(() {
-        _profile = profile;
         _loading = false;
       });
     } catch (e) {
@@ -144,15 +141,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_error != null) {
-      return Scaffold(
-        body: Center(child: Text(_error!)),
-      );
+      return Scaffold(body: Center(child: Text(_error!)));
     }
 
     final headerGrad = _headerGradient(widget.role);
@@ -237,7 +230,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         child: Text(
                                           _nameCtrl.text
                                               .split(' ')
-                                              .map((s) => s.isNotEmpty ? s[0] : '')
+                                              .map(
+                                                (s) => s.isNotEmpty ? s[0] : '',
+                                              )
                                               .take(2)
                                               .join(),
                                           style: const TextStyle(
@@ -268,7 +263,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   title: 'Email',
                                   value: _emailCtrl.text,
                                 ),
-
                               ],
                             ),
                           ),
